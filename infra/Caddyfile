@@ -1,0 +1,6 @@
+# Placeholder. Replace `:80` with the real domain (e.g. provodnik400.example.ru)
+# and Caddy provisions HTTPS on its own — nothing else here changes.
+:80 {
+	encode zstd gzip
+	reverse_proxy web:3000
+}

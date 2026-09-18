@@ -1,0 +1,79 @@
+/*
+ * Проводник 400 — design tokens. The single source of colour, radius and type.
+ * Corporate-premium: dark navy, white, one accent (crimson). Do not hard-code
+ * colours in components — use the Tailwind utilities generated from these.
+ */
+
+@theme {
+  /* Brand ramp */
+  --color-navy-950: #050b16;
+  --color-navy-900: #0a1428;
+  --color-navy-800: #12213f;
+  --color-navy-700: #1c3059;
+  --color-navy-600: #2a4478;
+  --color-navy-500: #4a68a5;
+  --color-navy-400: #7a93c4;
+  --color-navy-200: #c3cfe6;
+
+  /* The one accent — fills: bg-brand · text on navy: text-brand-text */
+  --color-brand: #e11d31;
+  --color-brand-hover: #c4152a;
+  --color-brand-text: #f24c5c; /* accent as text on navy: 5.6:1 (brand itself is 4.15:1) */
+
+  --font-sans:
+    "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    sans-serif;
+
+  --radius-card: 1rem;
+}
+
+/* Semantic tokens (shadcn/ui contract). Dark navy is the default surface. */
+:root {
+  color-scheme: dark;
+  --radius: 0.75rem;
+
+  --background: var(--color-navy-950);
+  --foreground: #ffffff;
+  --card: var(--color-navy-900);
+  --card-foreground: #ffffff;
+  --popover: var(--color-navy-900);
+  --popover-foreground: #ffffff;
+  --primary: var(--color-brand);
+  --primary-foreground: #ffffff;
+  --secondary: var(--color-navy-800);
+  --secondary-foreground: #ffffff;
+  --muted: var(--color-navy-800);
+  --muted-foreground: var(--color-navy-400);
+  --accent: var(--color-navy-800);
+  --accent-foreground: #ffffff;
+  --destructive: var(--color-brand);
+  --border: var(--color-navy-700);
+  --input: var(--color-navy-500); /* 3.6:1 — form borders need 3:1 */
+  --ring: var(--color-brand);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}

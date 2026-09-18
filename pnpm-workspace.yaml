@@ -1,0 +1,11 @@
+packages:
+  - apps/*
+  - packages/*
+
+allowBuilds:
+  '@biomejs/biome': true
+  esbuild: true
+  sharp: true
+
+minimumReleaseAgeExclude:
+  - lucide-react@1.47.0

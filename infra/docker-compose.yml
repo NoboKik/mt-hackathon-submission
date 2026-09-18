@@ -1,0 +1,61 @@
+# cd infra && docker compose up --build   (or from the repo root: docker compose -f infra/docker-compose.yml up --build)
+# Caddy serves the app on http://localhost — swap the Caddyfile site address for a
+# real domain and Caddy gets HTTPS certificates automatically.
+# Credentials default to the dev values below; override POSTGRES_* in infra/.env (and DATABASE_URL in apps/web/.env to match).
+name: provodnik-400
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-provodnik}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-provodnik}
+      POSTGRES_DB: ${POSTGRES_DB:-provodnik}
+    ports:
+      - '127.0.0.1:5432:5432' # host-side pnpm db:migrate / db:seed; loopback only
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-provodnik} -d ${POSTGRES_DB:-provodnik}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-provodnik}:${POSTGRES_PASSWORD:-provodnik}@postgres:5432/${POSTGRES_DB:-provodnik}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - '3000'
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
