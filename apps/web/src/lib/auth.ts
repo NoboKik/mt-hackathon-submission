@@ -9,8 +9,8 @@ const MAX_AGE_SEC = 30 * 24 * 60 * 60
 const KEYLEN = 64
 
 // NOTE: a fixed dev secret so `pnpm dev` works with no .env. Cookies signed with it are
-// worthless — compose refuses to start the web service without AUTH_SECRET, and secret() throws
-// in production if one ever slips through anyway.
+// worthless, and secret() throws in production when AUTH_SECRET is missing or empty — lazily, on
+// the first signed request, so a misconfigured container still passes the /api/health check.
 const DEV_SECRET = 'provodnik-400-dev-secret'
 
 // Read lazily: module top level also runs during `next build`, which has no env.

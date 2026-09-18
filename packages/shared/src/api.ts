@@ -1,0 +1,81 @@
+// The API contract: Zod schemas for request bodies, plain types for responses. The player is
+// coded against these types, so a route that changes shape breaks the build, not the demo.
+
+import { z } from 'zod'
+import type { ClientNode, MeterKey, Meters } from './engine'
+import type { Competency, Outcome } from './schema'
+import type { score } from './score'
+
+export type ScoreBreakdown = ReturnType<typeof score>
+
+// z.object, not strictObject: an extra field from the client gets stripped instead of 400ing
+// mid-demo. Scenario content stays strict — it's authored, not received.
+export const StartSessionBody = z.object({ scenarioId: z.string().min(1) })
+export type StartSessionBody = z.infer<typeof StartSessionBody>
+
+export const ChooseBody = z.object({
+  nodeId: z.string().min(1),
+  /** A choice id, or 'timeout'. The engine rejects ids the node doesn't have. */
+  choiceId: z.string().min(1),
+  elapsedMs: z.number().int().min(0),
+})
+export type ChooseBody = z.infer<typeof ChooseBody>
+
+export const LoginBody = z.object({ email: z.email(), password: z.string().min(1) })
+export type LoginBody = z.infer<typeof LoginBody>
+
+/** `bestScore` is null until the user finishes the scenario once. */
+export type ScenarioListItem = {
+  id: string
+  title: string
+  category: Competency
+  difficulty: number
+  estimatedMinutes: number
+  bestScore: number | null
+  attempts: number
+}
+
+export type StartSessionResponse = {
+  sessionId: string
+  seed: number
+  scenario: { id: string; title: string; intro: string }
+  steps: ClientNode[]
+  node: ClientNode
+  meters: Meters
+  finished: boolean
+}
+
+export type ChooseResponse = {
+  steps: ClientNode[]
+  node: ClientNode
+  meters: Meters
+  /** Net meter change since the previous node, for the animation. */
+  deltas: Meters
+  timedOut: boolean
+  finished: boolean
+  score?: ScoreBreakdown
+  // Achievement codes; copy lives in ru.ts.
+  achievements: string[]
+}
+
+export type DebriefStep = {
+  nodeId: string
+  nodeText: string
+  /** A choice id, or 'timeout'. */
+  choiceId: string
+  /** null on a timeout: there was no choice. */
+  choiceText: string | null
+  onExpertPath: boolean
+}
+
+export type DebriefResponse = {
+  outcome: Outcome
+  failedMeter?: MeterKey
+  meters: Meters
+  score: ScoreBreakdown
+  competencyDeltas: Partial<Record<Competency, number>>
+  lesson: string
+  regulation: string
+  yourPath: DebriefStep[]
+  expertPath: { choiceId: string; text: string }[]
+}

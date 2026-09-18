@@ -5,7 +5,8 @@
   "type": "module",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./fixtures": "./src/__fixtures__/medical-faint-01.ts"
   },
   "scripts": {
     "build": "tsc",
