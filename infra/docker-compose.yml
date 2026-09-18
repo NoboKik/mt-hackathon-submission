@@ -2,6 +2,7 @@
 # Caddy serves the app on http://localhost — swap the Caddyfile site address for a
 # real domain and Caddy gets HTTPS certificates automatically.
 # Credentials default to the dev values below; override POSTGRES_* in infra/.env (and DATABASE_URL in apps/web/.env to match).
+# AUTH_SECRET has no default: put one in infra/.env (`openssl rand -hex 32`) or every compose command here fails.
 name: provodnik-400
 
 services:
@@ -29,6 +30,7 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-provodnik}:${POSTGRES_PASSWORD:-provodnik}@postgres:5432/${POSTGRES_DB:-provodnik}
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in infra/.env}
     depends_on:
       postgres:
         condition: service_healthy
