@@ -10,10 +10,15 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "validate:content": "tsx scripts/validate-content.ts"
   },
   "devDependencies": {
+    "tsx": "4.23.13",
     "typescript": "5.9.3",
     "vitest": "5.0.1"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
   }
 }

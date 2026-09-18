@@ -12,7 +12,7 @@
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "lint": "biome check .",
-    "validate:content": "node scripts/validate-content.mjs",
+    "validate:content": "pnpm --filter @p400/shared validate:content",
     "db:migrate": "pnpm --filter web db:migrate",
     "db:seed": "pnpm --filter web db:seed"
   },
