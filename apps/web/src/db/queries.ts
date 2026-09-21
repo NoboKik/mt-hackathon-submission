@@ -2,10 +2,11 @@
 // no game rules. Everything is scoped to a user id — ownership is a WHERE clause, not a check
 // the caller can forget.
 
+import type { AchievementCode, FinishedRow } from '@p400/shared'
 import { Scenario, type ScenarioListItem } from '@p400/shared'
 import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm'
 import { db } from './index'
-import { type NewGameSession, scenarios, sessions, users } from './schema'
+import { type NewGameSession, scenarios, sessions, userAchievements, users } from './schema'
 
 export async function userByEmail(email: string) {
   const rows = await db()
@@ -116,4 +117,56 @@ export async function advanceSession(
     )
     .returning({ id: sessions.id })
   return rows.length === 1
+}
+
+/**
+ * Everything the achievement evaluator needs: this user's finished runs with their scenario's
+ * category, and how many scenarios exist at all (for `full-route`).
+ */
+export async function achievementInput(userId: string) {
+  const rows = await db()
+    .select({
+      scenarioId: sessions.scenarioId,
+      category: scenarios.category,
+      outcome: sessions.outcome,
+      score: sessions.score,
+      loyalty: sessions.loyalty,
+      safety: sessions.safety,
+      finishedAt: sessions.finishedAt,
+      path: sessions.path,
+    })
+    .from(sessions)
+    .innerJoin(scenarios, eq(scenarios.id, sessions.scenarioId))
+    .where(and(eq(sessions.userId, userId), isNotNull(sessions.finishedAt)))
+
+  const counted = await db().select({ total: sql<number>`count(*)::int` }).from(scenarios)
+
+  // The nullable columns are narrowed here, at the boundary: a finished session always has an
+  // outcome, a score and a finishedAt, but only the WHERE clause knows that.
+  const finished: FinishedRow[] = rows.map((r) => ({
+    scenarioId: r.scenarioId,
+    category: r.category,
+    outcome: r.outcome ?? 'fail',
+    score: r.score ?? 0,
+    loyalty: r.loyalty,
+    safety: r.safety,
+    finishedAt: r.finishedAt?.getTime() ?? 0,
+    choiceIds: r.path.map((step) => step.choiceId),
+  }))
+  return { rows: finished, scenarioCount: counted.at(0)?.total ?? 0 }
+}
+
+/**
+ * Grants the codes the user now qualifies for and returns only the ones that were actually new.
+ * The composite primary key plus RETURNING does the diff in one statement: no read-then-write,
+ * so two tabs finishing at once cannot both report the same badge as freshly unlocked.
+ */
+export async function unlockAchievements(userId: string, codes: AchievementCode[]) {
+  if (!codes.length) return []
+  const rows = await db()
+    .insert(userAchievements)
+    .values(codes.map((code) => ({ userId, code })))
+    .onConflictDoNothing()
+    .returning({ code: userAchievements.code })
+  return rows.map((r) => r.code)
 }

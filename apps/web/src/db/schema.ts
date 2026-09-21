@@ -2,8 +2,17 @@
 // unlocked achievements. Migrations in drizzle/ are generated from this file.
 // `sessions` holds game sessions, not auth sessions: auth is a signed cookie with no table.
 
-import type { Competency, Outcome, Scenario, score } from '@p400/shared'
-import { index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import type { AchievementCode, Competency, Outcome, Scenario, score } from '@p400/shared'
+import {
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core'
 
 const tstz = (name: string) => timestamp(name, { withTimezone: true })
 
@@ -72,9 +81,26 @@ export const sessions = pgTable(
   (t) => [index('sessions_user_scenario_idx').on(t.userId, t.scenarioId)],
 )
 
+// One row per badge a user has earned. No catalogue table: the titles live in i18n/ru.ts and the
+// conditions in packages/shared/src/achievements.ts, so a third copy in Postgres would only drift.
+// The composite primary key is what makes unlocking idempotent — insert ... on conflict do
+// nothing ... returning hands back exactly the badges that were new, with no read-then-write race.
+export const userAchievements = pgTable(
+  'user_achievements',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    code: text('code').$type<AchievementCode>().notNull(),
+    earnedAt: tstz('earned_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.code] })],
+)
+
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
 export type ScenarioRow = typeof scenarios.$inferSelect
 export type NewScenarioRow = typeof scenarios.$inferInsert
 export type GameSession = typeof sessions.$inferSelect
 export type NewGameSession = typeof sessions.$inferInsert
+export type NewUserAchievement = typeof userAchievements.$inferInsert

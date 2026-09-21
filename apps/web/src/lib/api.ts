@@ -4,6 +4,8 @@
 import {
   type ClientNode,
   type Competency,
+  debriefFor,
+  EngineError,
   type Outcome,
   type Scenario,
   score,
@@ -55,4 +57,21 @@ export function finishValues(
     competencyDeltas,
   })
   return { finishedAt: new Date(), outcome, score: breakdown.total, scoreBreakdown: breakdown }
+}
+
+/**
+ * Did this run take every choice the expert path names — the `flawless` badge's condition.
+ *
+ * debriefFor throws for the synthetic threshold end when the scenario has no success ending, and
+ * this is called after the session has already been advanced, so a bare call would 500 on a run
+ * the player has in fact finished. No expert path to compare against is simply not flawless.
+ */
+export function expertPathTaken(scenario: Scenario, endId: string, path: PathStep[]) {
+  try {
+    const taken = new Set(path.map((step) => step.choiceId))
+    return debriefFor(scenario, endId).expertPath.every((id) => taken.has(id))
+  } catch (e) {
+    if (e instanceof EngineError) return false
+    throw e
+  }
 }

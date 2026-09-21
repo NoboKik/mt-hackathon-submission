@@ -1,3 +1,5 @@
+import type { AchievementCode } from '@p400/shared'
+
 /**
  * All user-facing copy lives here. Components must not hard-code Russian strings.
  */
@@ -18,6 +20,52 @@ export const ru = {
       safety: 'Ситуация вышла из-под контроля — сценарий прерван.',
     },
   },
+  // Badge copy, keyed by the codes in packages/shared/src/achievements.ts — the conditions live
+  // there, the words live here, and there is no catalogue table holding a third copy. The
+  // `satisfies` is the guard: a new code with no Russian for it fails typecheck.
+  // Icons are deliberately absent: mapping a code to a lucide name is the frontend's business.
+  achievements: {
+    'first-run': {
+      title: 'Первый рейс',
+      description: 'Завершите первый сценарий — с любым результатом.',
+    },
+    'cool-head': {
+      title: 'Хладнокровие',
+      description: 'Пять завершённых сценариев, и ни одного просроченного таймера.',
+    },
+    'first-aid': {
+      title: 'Первая помощь',
+      description: 'Медицинский сценарий пройден на «успех», без просроченных таймеров.',
+    },
+    diplomat: {
+      title: 'Дипломат',
+      description: 'Конфликт улажен: лояльность и безопасность не ниже 80.',
+    },
+    'night-shift': {
+      title: 'Ночная смена',
+      description: 'Три сценария завершены в течение одного часа.',
+    },
+    flawless: {
+      title: 'Без единой ошибки',
+      description: 'Пройден путь эксперта: все решения из разбора.',
+    },
+    balance: {
+      title: 'Равновесие',
+      description: 'Сценарий завершён без провала, обе шкалы не ниже 80.',
+    },
+    steady: {
+      title: 'Регулярность',
+      description: 'Тренировки в три разных дня.',
+    },
+    'full-route': {
+      title: 'Полный маршрут',
+      description: 'Пройдены все сценарии из каталога.',
+    },
+    'honour-student': {
+      title: 'Отличник',
+      description: 'Не менее 115 очков за один сценарий.',
+    },
+  } satisfies Record<AchievementCode, { title: string; description: string }>,
   // API error bodies. The UI shows these, so they are copy, not log lines.
   errors: {
     unauthorized: 'Войдите в систему, чтобы продолжить.',

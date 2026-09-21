@@ -6,13 +6,15 @@ import {
   type Competency,
   choose,
   EngineError,
+  statsFor,
   TIMER_GRACE_MS,
+  unlockedCodes,
 } from '@p400/shared'
 import { NextResponse } from 'next/server'
-import { advanceSession, sessionFor } from '@/db/queries'
+import { achievementInput, advanceSession, sessionFor, unlockAchievements } from '@/db/queries'
 import type { PathStep } from '@/db/schema'
 import { ru } from '@/i18n/ru'
-import { endText, fail, finishValues } from '@/lib/api'
+import { endText, expertPathTaken, fail, finishValues } from '@/lib/api'
 import { currentUserId } from '@/lib/auth'
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -74,6 +76,30 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // Another tab moved this session on between the read and the write.
   if (!written) return fail(409, ru.errors.staleStep)
 
+  // Only a finished run can unlock anything, and only after the write won its race: a lost race
+  // must not hand out a badge for a step some other tab actually took.
+  // The rows are read back after the write, so they include the run that just ended.
+  let achievements: string[] = []
+  if (finish) {
+    const { rows, scenarioCount } = await achievementInput(userId)
+    achievements = await unlockAchievements(
+      userId,
+      unlockedCodes(
+        statsFor(rows, scenarioCount, {
+          scenarioId: session.scenarioId,
+          category: scenario.category,
+          outcome: finish.outcome,
+          score: finish.score,
+          loyalty: result.meters.loyalty,
+          safety: result.meters.safety,
+          finishedAt: finish.finishedAt.getTime(),
+          choiceIds: path.map((step) => step.choiceId),
+          expertPath: expertPathTaken(scenario, next.id, path),
+        }),
+      ),
+    )
+  }
+
   const res: ChooseResponse = {
     steps: result.steps,
     node: next,
@@ -85,8 +111,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     timedOut,
     finished: finish !== undefined,
     ...(finish ? { score: finish.scoreBreakdown } : {}),
-    // Filled by the achievements engine (23–24 Sept); the contract is already here.
-    achievements: [],
+    // Newly unlocked only: a replay of the same perfect run returns [].
+    achievements,
   }
   return NextResponse.json(res)
 }
