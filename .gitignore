@@ -13,3 +13,6 @@ dist/
 
 # test / tooling
 coverage/
+
+# deploy.sh backup
+infra/backups/
