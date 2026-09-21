@@ -1,55 +1,86 @@
 /*
  * Проводник 400 — design tokens. The single source of colour, radius and type.
- * Corporate-premium: dark navy, white, one accent (crimson). Do not hard-code
- * colours in components — use the Tailwind utilities generated from these.
+ * Do not hard-code colours in components — use the Tailwind utilities generated here.
+ *
+ * Calibrated against the organizer's own sites (measured 2026-09-21):
+ *   mt-hackathon.ru   bg #1a1230 · surface #2c2e59 · accent #3f6fd1 · text #f5f8fd · r12 + pill
+ *   transport.mos.ru  light #f3f5f7 · link #0a51a1 · orange #ff6b00 · r8 · weights 400/700
+ * We take their dark treatment and their blue, and deliberately diverge twice:
+ *   1. Accent is blue, not crimson. Both meters need red for danger; an accent that
+ *      reads as the same red destroys the signal.
+ *   2. Cards get a visible border. Their own surface-on-bg is 1.4:1 — invisible. A
+ *      screen with meters and a leaderboard cannot afford that, so --border carries
+ *      the boundary (3.61:1 on bg) and the fill only hints at it.
+ *
+ * Type is Moscow Sans, the organizer's brand face, used with their permission.
  */
 
 @theme {
-  /* Brand ramp */
-  --color-navy-950: #050b16;
-  --color-navy-900: #0a1428;
-  --color-navy-800: #12213f;
-  --color-navy-700: #1c3059;
-  --color-navy-600: #2a4478;
-  --color-navy-500: #4a68a5;
-  --color-navy-400: #7a93c4;
-  --color-navy-200: #c3cfe6;
+  /* Surface ramp — anchored on the two values measured on mt-hackathon.ru */
+  --color-ink-950: #14102b; /* page, one step deeper than theirs for contrast headroom */
+  --color-ink-900: #1a1230; /* their body background, exact */
+  --color-ink-800: #241c42; /* raised surface */
+  --color-ink-700: #2c2e59; /* their card surface, exact */
+  --color-ink-600: #3c3f70;
+  --color-ink-500: #6a6c9b; /* their border tone — 3.61:1 on ink-900, the boundary colour */
+  --color-ink-400: #a0a4c0; /* muted text — 7.3:1 */
+  --color-ink-200: #bec1c6; /* their secondary text, exact — 9.92:1 */
+  --color-ink-50: #f5f8fd; /* their body text, exact — 16.82:1 */
 
-  /* The one accent — fills: bg-brand · text on navy: text-brand-text */
-  --color-brand: #e11d31;
-  --color-brand-hover: #c4152a;
-  --color-brand-text: #f24c5c; /* accent as text on navy: 5.6:1 (brand itself is 4.15:1) */
+  /* The one accent — their blue. Fills: bg-brand (white text 4.77:1).
+   * As text on dark it is only 3.76:1, so text uses brand-text (5.9:1). */
+  --color-brand: #3f6fd1;
+  --color-brand-hover: #3560b8;
+  --color-brand-text: #6f93e0;
 
+  /* Meter + outcome semantics. Red belongs to danger only, never to the brand.
+   * All three clear 5.9:1 on ink-900, so they may carry text, not just fills. */
+  --color-safe: #3ddc97; /* meter healthy · outcome success — 10.13:1 */
+  --color-warn: #ffb03a; /* meter nearing threshold · outcome partial — 9.82:1 */
+  --color-danger: #ff5c6b; /* meter below threshold · outcome fail · timeout — 5.96:1 */
+
+  /* Loyalty vs safety: the two meters must never be confused at a glance, so they
+   * differ in hue as well as fill level. */
+  --color-loyalty: #c79bff;
+  --color-safety: #59c2ff;
+
+  /* Commissioner is the closest public face to Moscow Sans, measured from their own OTF
+   * (transport.mos.ru serves it unpacked): 2.13% weighted deviation against Inter's 5.53%.
+   * The ratio that matters is lowercase-to-capital height — Moscow Sans 0.706,
+   * Commissioner 0.696, Inter 0.750 — which is why Inter looked wrong beside their site.
+   * Cantarell measures closer still (1.36%) but has no Cyrillic on Google Fonts.
+   * Loaded by next/font in layout.tsx; the family name comes from the variable it injects. */
   --font-sans:
-    "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
-    sans-serif;
+    var(--font-commissioner), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
 
-  --radius-card: 1rem;
+  /* Their radius language: 12px cards, full pills for chips and meters. */
+  --radius-card: 0.75rem;
 }
 
-/* Semantic tokens (shadcn/ui contract). Dark navy is the default surface. */
+/* Semantic tokens (shadcn/ui contract). The dark surface is the only theme —
+ * a training tool used on a train, and the organizer's own dark treatment. */
 :root {
   color-scheme: dark;
   --radius: 0.75rem;
 
-  --background: var(--color-navy-950);
-  --foreground: #ffffff;
-  --card: var(--color-navy-900);
-  --card-foreground: #ffffff;
-  --popover: var(--color-navy-900);
-  --popover-foreground: #ffffff;
+  --background: var(--color-ink-950);
+  --foreground: var(--color-ink-50);
+  --card: var(--color-ink-900);
+  --card-foreground: var(--color-ink-50);
+  --popover: var(--color-ink-800);
+  --popover-foreground: var(--color-ink-50);
   --primary: var(--color-brand);
   --primary-foreground: #ffffff;
-  --secondary: var(--color-navy-800);
-  --secondary-foreground: #ffffff;
-  --muted: var(--color-navy-800);
-  --muted-foreground: var(--color-navy-400);
-  --accent: var(--color-navy-800);
-  --accent-foreground: #ffffff;
-  --destructive: var(--color-brand);
-  --border: var(--color-navy-700);
-  --input: var(--color-navy-500); /* 3.6:1 — form borders need 3:1 */
-  --ring: var(--color-brand);
+  --secondary: var(--color-ink-700);
+  --secondary-foreground: var(--color-ink-50);
+  --muted: var(--color-ink-800);
+  --muted-foreground: var(--color-ink-400);
+  --accent: var(--color-ink-700);
+  --accent-foreground: var(--color-ink-50);
+  --destructive: var(--color-danger);
+  --border: var(--color-ink-500); /* carries the card boundary — see the header note */
+  --input: var(--color-ink-500); /* 3.61:1 — form borders need 3:1 */
+  --ring: var(--color-brand-text); /* focus ring must be visible on dark: 5.9:1 */
 }
 
 @theme inline {
@@ -76,4 +107,20 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* The countdown ring and meter fills animate; respect the OS setting. `!important` is load
+ * bearing here — without it any component-level transition wins and the opt-out silently
+ * does nothing. Biome's fix for this rule deletes the guarantee, so it stays suppressed. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: must beat component transitions */
+    animation-duration: 0.01ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: must beat component transitions */
+    animation-iteration-count: 1 !important;
+    /* biome-ignore lint/complexity/noImportantStyles: must beat component transitions */
+    transition-duration: 0.01ms !important;
+  }
 }
