@@ -24,6 +24,42 @@ export type ChooseBody = z.infer<typeof ChooseBody>
 export const LoginBody = z.object({ email: z.email(), password: z.string().min(1) })
 export type LoginBody = z.infer<typeof LoginBody>
 
+export type LeaderboardPeriod = 'week' | 'all'
+
+/** Query string for GET /leaderboard. Both parts are optional; `all` is the default board. */
+export const LeaderboardQuery = z.object({
+  period: z.enum(['week', 'all']).default('all'),
+  depot: z.string().min(1).optional(),
+})
+export type LeaderboardQuery = z.infer<typeof LeaderboardQuery>
+
+export type LeaderboardRow = {
+  userId: string
+  displayName: string
+  position: string
+  depot: string
+  avatar: string | null
+  /** Sum of the best score per scenario — replays raise it, they don't add to it. */
+  total: number
+  /** How many distinct scenarios that total covers. */
+  scenarios: number
+  /** Competition ranking: ties share a rank and the next one is skipped. */
+  rank: number
+}
+
+export type LeaderboardResponse = {
+  period: LeaderboardPeriod
+  /** The depot filter in force, or null for every depot. */
+  depot: string | null
+  /** Every depot on the board, not just the filtered one — this is the filter's own options list. */
+  depots: string[]
+  /** When the cached totals were computed, ISO 8601. */
+  updatedAt: string
+  top: LeaderboardRow[]
+  /** The viewer's own row, ranked among the rows shown. Null exactly when the depot filter excludes them. */
+  me: LeaderboardRow | null
+}
+
 /** `bestScore` is null until the user finishes the scenario once. */
 export type ScenarioListItem = {
   id: string

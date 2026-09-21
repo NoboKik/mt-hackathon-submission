@@ -6,6 +6,8 @@ import type {
   AchievementCode,
   EarnedAchievement,
   FinishedRow,
+  LeaderboardPeriod,
+  LeaderboardRow,
   MeUser,
   ProfileSession,
 } from '@p400/shared'
@@ -254,4 +256,57 @@ export async function earnedAchievements(userId: string): Promise<EarnedAchievem
     .where(eq(userAchievements.userId, userId))
     .orderBy(userAchievements.earnedAt)
   return rows.map((r) => ({ code: r.code, earnedAt: r.earnedAt.toISOString() }))
+}
+
+/** Viewer-independent, so one cached copy per period serves everybody. */
+export const LEADERBOARD_CACHE_MS = 30_000
+
+type CachedBoard = { at: number; rows: LeaderboardRow[] }
+const boards = new Map<LeaderboardPeriod, CachedBoard>()
+
+/** Called when a session finishes: without it the demo user climbs up to 30 s after her run. */
+export const clearLeaderboardCache = () => boards.clear()
+
+/**
+ * Every user ranked by the sum of their best score per scenario, in one query. LEFT JOIN, so a
+ * conductor who has played nothing is still on the board at 0 — and a viewer who is in no row at
+ * all is a stale cookie, not an empty history.
+ *
+ * ::int everywhere: postgres-js hands back sum(), count() and rank() as strings.
+ */
+export async function leaderboardTotals(period: LeaderboardPeriod): Promise<CachedBoard> {
+  const hit = boards.get(period)
+  if (hit && Date.now() - hit.at < LEADERBOARD_CACHE_MS) return hit
+
+  // A conditional fragment, not a hand-numbered placeholder: drizzle renumbers the parameters.
+  const since =
+    period === 'week' ? sql`and ${sessions.finishedAt} >= now() - interval '7 days'` : sql``
+
+  // db().execute() on postgres-js resolves to the row list itself — there is no .rows here.
+  const rows = (await db().execute(sql`
+    with best as (
+      select ${sessions.userId} as user_id,
+             ${sessions.scenarioId} as scenario_id,
+             max(${sessions.score}) as score
+      from ${sessions}
+      where ${sessions.finishedAt} is not null ${since}
+      group by ${sessions.userId}, ${sessions.scenarioId}
+    )
+    select ${users.id} as "userId",
+           ${users.displayName} as "displayName",
+           ${users.position} as "position",
+           ${users.depot} as "depot",
+           ${users.avatar} as "avatar",
+           coalesce(sum(best.score), 0)::int as "total",
+           count(best.scenario_id)::int as "scenarios",
+           rank() over (order by coalesce(sum(best.score), 0) desc)::int as "rank"
+    from ${users}
+    left join best on best.user_id = ${users.id}
+    group by ${users.id}, ${users.displayName}, ${users.position}, ${users.depot}, ${users.avatar}
+    order by "rank", "displayName"
+  `)) as unknown as LeaderboardRow[]
+
+  const board = { at: Date.now(), rows }
+  boards.set(period, board)
+  return board
 }

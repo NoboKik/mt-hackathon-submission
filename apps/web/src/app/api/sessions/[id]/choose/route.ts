@@ -11,7 +11,13 @@ import {
   unlockedCodes,
 } from '@p400/shared'
 import { NextResponse } from 'next/server'
-import { achievementInput, advanceSession, sessionFor, unlockAchievements } from '@/db/queries'
+import {
+  achievementInput,
+  advanceSession,
+  clearLeaderboardCache,
+  sessionFor,
+  unlockAchievements,
+} from '@/db/queries'
 import type { PathStep } from '@/db/schema'
 import { ru } from '@/i18n/ru'
 import { endText, expertPathTaken, fail, finishValues } from '@/lib/api'
@@ -81,6 +87,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   // The rows are read back after the write, so they include the run that just ended.
   let achievements: string[] = []
   if (finish) {
+    // The board is cached for 30 s, and a player checks it right after a run: without this
+    // they would not see themselves climb until the cache expired.
+    clearLeaderboardCache()
     const { rows, scenarioCount } = await achievementInput(userId)
     achievements = await unlockAchievements(
       userId,
