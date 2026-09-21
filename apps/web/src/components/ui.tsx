@@ -24,9 +24,10 @@ const cardClass = cva('rounded-card border border-border bg-card', {
       float: 'shadow-float backdrop-blur-xl',
     },
     interactive: {
-      // Colour only — nothing that changes geometry. A hover lift moved every card and every
-      // choice button 2px under the cursor, which read as the layout twitching.
-      true: 'transition-colors duration-150 hover:border-brand/50 hover:bg-accent/40',
+      // Colour only: a geometry change on hover makes the layout twitch under the cursor.
+      // Neutral, not brand, so a list of cards does not wash red. White cannot get lighter, so light
+      // mode lifts the shadow; dark steps up to the lighter navy surface.
+      true: 'transition-[background-color,box-shadow] duration-150 hover:shadow-lift dark:hover:bg-muted',
       false: '',
     },
     pad: { none: '', sm: 'p-4', md: 'p-5', lg: 'p-5 sm:p-6' },

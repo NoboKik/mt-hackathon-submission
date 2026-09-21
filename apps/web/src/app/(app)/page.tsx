@@ -29,7 +29,7 @@ function ScenarioCard({ scenario }: { scenario: ScenarioListItem }) {
         surface({ interactive: true, pad: 'lg' }),
         // `interactive` handles hover; focus-within repeats it for keyboard users,
         // while the ring itself stays on the control that actually has focus.
-        'flex flex-col gap-5 focus-within:border-brand/50',
+        'flex flex-col gap-5 focus-within:shadow-lift dark:focus-within:bg-muted',
       )}
     >
       <div className="flex flex-col gap-2">
