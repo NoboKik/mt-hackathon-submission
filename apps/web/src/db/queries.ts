@@ -12,7 +12,7 @@ import type {
   ProfileSession,
 } from '@p400/shared'
 import { Scenario, type ScenarioListItem, THRESHOLD_END_ID } from '@p400/shared'
-import { and, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, isNotNull, isNull, notExists, sql } from 'drizzle-orm'
 import { expertPathTaken } from '@/lib/api'
 import { db } from './index'
 import { type NewGameSession, scenarios, sessions, userAchievements, users } from './schema'
@@ -326,6 +326,20 @@ export async function generatedScenarios() {
     .from(scenarios)
     .where(eq(scenarios.source, 'generated'))
     .orderBy(scenarios.createdAt)
+}
+
+/** Generated scenarios this user has never even started, oldest first: auto mode's queue. */
+export async function unplayedGenerated(userId: string) {
+  const started = db()
+    .select({ id: sessions.id })
+    .from(sessions)
+    .where(and(eq(sessions.scenarioId, scenarios.id), eq(sessions.userId, userId)))
+  const rows = await db()
+    .select({ id: scenarios.id })
+    .from(scenarios)
+    .where(and(eq(scenarios.source, 'generated'), notExists(started)))
+    .orderBy(scenarios.createdAt)
+  return rows.map((r) => r.id)
 }
 
 /** A validated LLM draft joins the pool. Never the catalogue: that is `source = 'curated'`. */

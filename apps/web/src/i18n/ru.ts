@@ -214,7 +214,19 @@ export const ru = {
     },
   } satisfies Record<AchievementCode, { title: string; description: string }>,
   // API error bodies. The UI shows these, so they are copy, not log lines.
+  // Auto mode: an endless stream of LLM-drafted scenarios, served from a pre-filled pool.
+  auto: {
+    title: 'Автоматический режим',
+    cta: 'Автоматический режим',
+    hint: 'Бесконечная практика: новые сценарии, которые готовит ИИ. В рейтинге не учитываются.',
+    generating: 'Готовим новый сценарий…',
+    generatingHint: 'Это занимает до минуты. Страница обновится сама.',
+    gaveUp: 'Сценарий не успел подготовиться. Попробуйте ещё раз через пару минут.',
+    draftChip: 'ИИ-черновик',
+    next: 'Следующий сценарий',
+  },
   errors: {
+    llmNotConfigured: 'Автоматический режим не настроен: на сервере не задан доступ к модели.',
     unauthorized: 'Войдите в систему, чтобы продолжить.',
     badRequest: 'Некорректный запрос.',
     badCredentials: 'Неверный email или пароль.',

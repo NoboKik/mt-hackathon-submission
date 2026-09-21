@@ -67,7 +67,7 @@ function Step({ step }: { step: DebriefStep }) {
   )
 }
 
-export function Debrief({ sessionId }: { sessionId: string }) {
+export function Debrief({ sessionId, auto = false }: { sessionId: string; auto?: boolean }) {
   const q = useQuery({
     queryKey: ['debrief', sessionId],
     queryFn: () => api<DebriefResponse>(`/sessions/${sessionId}/debrief`),
@@ -181,7 +181,19 @@ export function Debrief({ sessionId }: { sessionId: string }) {
       </Section>
 
       <div className="flex flex-wrap gap-3 border-t border-border pt-6">
-        <Link href="/" className={cn(buttonClass({ size: 'lg' }), 'w-full sm:w-auto')}>
+        {/* In auto mode the next scenario is the primary action; the catalogue steps down. */}
+        {auto && (
+          <Link href="/auto" className={cn(buttonClass({ size: 'lg' }), 'w-full sm:w-auto')}>
+            {ru.auto.next}
+          </Link>
+        )}
+        <Link
+          href="/"
+          className={cn(
+            buttonClass({ variant: auto ? 'outline' : 'primary', size: 'lg' }),
+            'w-full sm:w-auto',
+          )}
+        >
           {ru.debrief.toCatalogue}
         </Link>
       </div>

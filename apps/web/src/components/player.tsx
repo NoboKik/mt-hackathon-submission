@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils'
 
 type Run = {
   sessionId: string
+  scenario: StartSessionResponse['scenario']
   node: ClientNode
   meters: Meters
   deltas?: Meters
@@ -118,7 +119,7 @@ function Consequence({ node }: { node: Extract<ClientNode, { type: 'consequence'
   )
 }
 
-export function Player({ scenarioId }: { scenarioId: string }) {
+export function Player({ scenarioId, auto = false }: { scenarioId: string; auto?: boolean }) {
   const [run, setRun] = useState<Run | null>(null)
   const [error, setError] = useState<string | null>(null)
   // When the current node was put on screen; the server charges elapsed time from its own
@@ -198,6 +199,12 @@ export function Player({ scenarioId }: { scenarioId: string }) {
 
   return (
     <div className={cn(page, 'flex flex-col gap-5')}>
+      {/* Auto mode's pool is LLM-drafted and unreviewed; the player is told so up front. */}
+      {run.scenario.source === 'generated' && (
+        <Chip tone="warn" className="self-start">
+          {ru.auto.draftChip}
+        </Chip>
+      )}
       {/* The meters sit in the page and stick under the header. top-14 is the header's height;
           the extra 4 keeps a gap so the card does not butt against the red bar. */}
       <div className="border-border bg-card rounded-card shadow-card sticky top-18 z-10 border p-4">
@@ -295,7 +302,7 @@ export function Player({ scenarioId }: { scenarioId: string }) {
             )}
             <div className="flex flex-wrap justify-center gap-3">
               <Link
-                href={`/debrief/${run.sessionId}`}
+                href={`/debrief/${run.sessionId}${auto ? '?auto=1' : ''}`}
                 className={buttonClass({ variant: 'primary', size: 'lg' })}
               >
                 {ru.player.toDebrief}

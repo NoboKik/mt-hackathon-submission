@@ -2,7 +2,7 @@
 
 import type { ScenarioListItem } from '@p400/shared'
 import { useQuery } from '@tanstack/react-query'
-import { Clock3, Workflow } from 'lucide-react'
+import { Clock3, Sparkles, Workflow } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
@@ -124,6 +124,19 @@ export default function HomePage() {
           {ru.home.subtitle}
         </p>
       </header>
+
+      {/* Auto mode sits above the list: the endless stream is the one action that needs no
+          choosing. */}
+      <div className="flex flex-col gap-2">
+        <Link
+          href="/auto"
+          className={cn(buttonClass({ size: 'lg' }), 'w-full sm:w-auto sm:self-start')}
+        >
+          <Sparkles className="size-5" aria-hidden="true" />
+          {ru.auto.cta}
+        </Link>
+        <p className="max-w-prose text-xs text-muted-foreground">{ru.auto.hint}</p>
+      </div>
 
       {scenarios.isPending && (
         <>
