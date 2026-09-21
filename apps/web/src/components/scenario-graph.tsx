@@ -2,8 +2,10 @@
 
 import type { AdminGraphResponse, GraphNode } from '@p400/shared'
 import { useQuery } from '@tanstack/react-query'
+import { Card, Chip, Eyebrow, Stat } from '@/components/ui'
 import { ru } from '@/i18n/ru'
-import { api } from '@/lib/client'
+import { ApiError, api } from '@/lib/client'
+import { cn } from '@/lib/utils'
 
 // NOTE: a hand-rolled layered layout instead of react-flow. A scenario is 6–12 nodes and a
 // DAG the validator already proved acyclic, so BFS depth is the whole algorithm — a graph
@@ -12,6 +14,8 @@ const BOX_W = 210
 const BOX_H = 78
 const GAP_X = 70
 const GAP_Y = 26
+/** Breathing room around the drawing, so a 2px start border is not clipped by the viewBox. */
+const PAD = 10
 
 type Placed = GraphNode & { x: number; y: number }
 
@@ -45,22 +49,34 @@ function layout(graph: AdminGraphResponse): { placed: Placed[]; width: number; h
     nodes.forEach((node, i) => {
       placed.push({ ...node, x: d * (BOX_W + GAP_X), y: i * (BOX_H + GAP_Y) })
     })
-    height = Math.max(height, nodes.length * (BOX_H + GAP_Y))
+    // The last row carries no trailing gap: on a phone that gap is dead scroll height.
+    height = Math.max(height, nodes.length * (BOX_H + GAP_Y) - GAP_Y)
   }
-  const width = (Math.max(...columns.keys()) + 1) * (BOX_W + GAP_X)
+  const width = Math.max(...columns.keys()) * (BOX_W + GAP_X) + BOX_W
   return { placed, width, height }
 }
 
-const STROKE: Record<string, string> = {
-  success: 'var(--color-safe)',
-  partial: 'var(--color-warn)',
-  fail: 'var(--color-danger)',
+/**
+ * Every colour here is a *semantic* var (`--card`, `--border`, `--safe`…), never a raw ramp var.
+ * SVG attributes cannot take Tailwind classes, and the raw `--color-ink-*` / `--color-paper-*`
+ * ramps do not flip with the theme. The semantic layer is redefined under `.dark`, so these follow the theme.
+ */
+const OUTCOME_COLOR: Record<string, string> = {
+  success: 'var(--safe)',
+  partial: 'var(--warn)',
+  fail: 'var(--danger)',
+}
+
+/** The type marker dot — the same three readings the legend chips above the canvas show. */
+function nodeAccent(node: GraphNode) {
+  if (node.type === 'end') return (node.outcome && OUTCOME_COLOR[node.outcome]) || 'var(--border)'
+  return node.type === 'choice' ? 'var(--brand)' : 'var(--muted-foreground)'
 }
 
 function nodeStroke(node: GraphNode) {
-  if (node.type === 'end' && node.outcome) return STROKE[node.outcome]
-  if (node.isStart) return 'var(--color-brand-text)'
-  return 'var(--color-ink-500)'
+  if (node.isStart) return 'var(--brand)'
+  if (node.type === 'end' && node.outcome) return OUTCOME_COLOR[node.outcome]
+  return 'var(--border)'
 }
 
 const LINE_CHARS = 26
@@ -90,6 +106,25 @@ function wrap(text: string) {
   return lines
 }
 
+function Dot({ className }: { className?: string }) {
+  return <span aria-hidden="true" className={cn('size-1.5 shrink-0 rounded-full', className)} />
+}
+
+/** The two meters keep their own hues here, exactly as the in-play HUD shows them. */
+function MeterPairValue({ loyalty, safety }: { loyalty: number; safety: number }) {
+  return (
+    <span className="inline-flex items-baseline gap-1.5">
+      <span className="text-loyalty" title={ru.player.loyalty}>
+        {loyalty}
+      </span>
+      <span className="text-base font-normal text-muted-foreground">/</span>
+      <span className="text-safety" title={ru.player.safety}>
+        {safety}
+      </span>
+    </span>
+  )
+}
+
 export function ScenarioGraph({ scenarioId }: { scenarioId: string }) {
   const q = useQuery({
     queryKey: ['graph', scenarioId],
@@ -97,114 +132,187 @@ export function ScenarioGraph({ scenarioId }: { scenarioId: string }) {
     retry: false,
   })
 
-  if (q.isPending) return <p className="text-muted-foreground text-sm">{ru.common.loading}</p>
-  if (q.error) return <p className="text-danger text-sm">{q.error.message}</p>
+  if (q.isPending) return <p className="text-sm text-muted-foreground">{ru.common.loading}</p>
+  if (q.error)
+    return (
+      <Card>
+        <p className="text-sm font-semibold text-danger-text">
+          {q.error instanceof ApiError && q.error.status === 404
+            ? ru.admin.notFound
+            : q.error.message}
+        </p>
+      </Card>
+    )
 
   const graph = q.data
   const { placed, width, height } = layout(graph)
   const at = new Map(placed.map((n) => [n.id, n]))
+  const svgW = width + PAD * 2
+  const svgH = height + PAD * 2
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-2">
-        <p className="text-brand-text text-xs font-semibold tracking-[0.18em] uppercase">
+    <div className="flex flex-col gap-5 sm:gap-6">
+      <header className="flex flex-col items-start gap-2">
+        <Eyebrow>{ru.admin.title}</Eyebrow>
+        <h1 className="text-display text-balance">{graph.title}</h1>
+        <p className="text-sm text-muted-foreground sm:text-base">{ru.admin.subtitle}</p>
+        <Chip tone="brand" className="mt-1">
           {ru.competencies[graph.category]}
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight text-balance">{graph.title}</h1>
-        <p className="text-muted-foreground text-sm">{ru.admin.subtitle}</p>
+        </Chip>
       </header>
 
-      <dl className="text-muted-foreground flex flex-wrap gap-x-6 gap-y-1 text-xs">
-        <div className="flex gap-1.5">
-          <dt>{ru.admin.nodes}:</dt>
-          <dd className="text-foreground tabular-nums">{graph.nodes.length}</dd>
+      <Card>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-4">
+          <Stat label={ru.admin.nodes} value={graph.nodes.length} />
+          <Stat label={ru.admin.edges} value={graph.edges.length} />
+          <Stat label={ru.admin.initial} value={<MeterPairValue {...graph.initial} />} />
+          <Stat label={ru.admin.thresholds} value={<MeterPairValue {...graph.failThresholds} />} />
         </div>
-        <div className="flex gap-1.5">
-          <dt>{ru.admin.edges}:</dt>
-          <dd className="text-foreground tabular-nums">{graph.edges.length}</dd>
-        </div>
-        <div className="flex gap-1.5">
-          <dt>{ru.admin.initial}:</dt>
-          <dd className="text-foreground tabular-nums">
-            {graph.initial.loyalty} / {graph.initial.safety}
-          </dd>
-        </div>
-        <div className="flex gap-1.5">
-          <dt>{ru.admin.thresholds}:</dt>
-          <dd className="text-foreground tabular-nums">
-            {graph.failThresholds.loyalty} / {graph.failThresholds.safety}
-          </dd>
-        </div>
-      </dl>
+      </Card>
 
-      {/* Wide content scrolls in its own container; the page never scrolls sideways. */}
-      <div className="border-border bg-card rounded-card overflow-x-auto border p-4">
-        <svg
-          width={width}
-          height={height}
-          viewBox={`-8 -8 ${width + 16} ${height + 16}`}
-          role="img"
-          aria-label={ru.admin.title}
-        >
-          <title>{ru.admin.title}</title>
-          {graph.edges.map((edge) => {
-            const from = at.get(edge.source)
-            const to = at.get(edge.target)
-            if (!from || !to) return null
-            const x1 = from.x + BOX_W
-            const y1 = from.y + BOX_H / 2
-            const x2 = to.x
-            const y2 = to.y + BOX_H / 2
-            const mid = (x1 + x2) / 2
-            return (
-              <path
-                key={edge.id}
-                d={`M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`}
-                fill="none"
-                stroke={edge.isTimeout ? 'var(--color-danger)' : 'var(--color-ink-500)'}
-                strokeWidth={1.5}
-                strokeDasharray={edge.isTimeout ? '5 4' : undefined}
+      <Card pad="none" className="overflow-hidden">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
+          <Chip>
+            <Dot className="bg-brand" />
+            {ru.admin.nodeTypes.choice}
+          </Chip>
+          <Chip>
+            <Dot className="bg-muted-foreground" />
+            {ru.admin.nodeTypes.consequence}
+          </Chip>
+          <Chip>
+            {/* A finale is coloured by its outcome, so its legend swatch shows all three. */}
+            <span aria-hidden="true" className="flex gap-0.5">
+              <Dot className="bg-safe" />
+              <Dot className="bg-warn" />
+              <Dot className="bg-danger" />
+            </span>
+            {ru.admin.nodeTypes.end}
+          </Chip>
+          <Chip tone="danger">
+            <svg aria-hidden="true" className="h-0.5 w-4" viewBox="0 0 16 2">
+              <line
+                x1="0"
+                y1="1"
+                x2="16"
+                y2="1"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeDasharray="5 4"
               />
-            )
-          })}
-          {placed.map((node) => (
-            <g key={node.id}>
-              <rect
-                x={node.x}
-                y={node.y}
-                width={BOX_W}
-                height={BOX_H}
-                rx={10}
-                fill="var(--color-ink-800)"
-                stroke={nodeStroke(node)}
-                strokeWidth={node.isStart ? 2 : 1.25}
-              />
-              <text
-                x={node.x + 12}
-                y={node.y + 20}
-                fill="var(--color-ink-400)"
-                fontSize={9.5}
-                fontWeight={600}
-                letterSpacing="0.08em"
-              >
-                {(node.isStart ? `${ru.admin.start} · ` : '') +
-                  ru.admin.nodeTypes[node.type].toUpperCase()}
-              </text>
-              {wrap(node.text).map((line, i) => (
-                <text
-                  key={line}
-                  x={node.x + 12}
-                  y={node.y + 40 + i * 15}
-                  fill="var(--color-ink-50)"
-                  fontSize={11.5}
+            </svg>
+            {ru.admin.timeoutEdge}
+          </Chip>
+        </div>
+
+        {/* Wide content scrolls in its own container; the page never scrolls sideways.
+         * The inner w-max keeps the canvas fill and its padding under the whole drawing
+         * instead of stopping at the viewport edge once it is scrolled. */}
+        <div className="overflow-x-auto">
+          <div className="w-max min-w-full bg-muted p-4">
+            <svg
+              className="block"
+              width={svgW}
+              height={svgH}
+              style={{ minWidth: `${svgW}px` }}
+              viewBox={`${-PAD} ${-PAD} ${svgW} ${svgH}`}
+              role="img"
+              aria-label={ru.admin.title}
+            >
+              <title>{ru.admin.title}</title>
+              <defs>
+                {/* markerUnits defaults to strokeWidth, so both heads scale with their line. */}
+                <marker
+                  id="p400-edge-arrow"
+                  viewBox="0 0 8 8"
+                  refX="7"
+                  refY="4"
+                  markerWidth="5"
+                  markerHeight="5"
+                  orient="auto-start-reverse"
                 >
-                  {line}
-                </text>
+                  <path d="M 0 0 L 8 4 L 0 8 z" fill="var(--muted-foreground)" opacity={0.55} />
+                </marker>
+                <marker
+                  id="p400-edge-arrow-timeout"
+                  viewBox="0 0 8 8"
+                  refX="7"
+                  refY="4"
+                  markerWidth="5"
+                  markerHeight="5"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M 0 0 L 8 4 L 0 8 z" fill="var(--danger)" opacity={0.85} />
+                </marker>
+              </defs>
+              {graph.edges.map((edge) => {
+                const from = at.get(edge.source)
+                const to = at.get(edge.target)
+                if (!from || !to) return null
+                const x1 = from.x + BOX_W
+                const y1 = from.y + BOX_H / 2
+                const x2 = to.x
+                const y2 = to.y + BOX_H / 2
+                const mid = (x1 + x2) / 2
+                return (
+                  <path
+                    key={edge.id}
+                    d={`M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`}
+                    fill="none"
+                    stroke={edge.isTimeout ? 'var(--danger)' : 'var(--muted-foreground)'}
+                    // Edges recede on white: what read as a hairline on dark navy reads as a
+                    // cable on paper, so they lose a quarter pixel and half their opacity.
+                    strokeWidth={1.25}
+                    strokeOpacity={edge.isTimeout ? 0.85 : 0.5}
+                    strokeDasharray={edge.isTimeout ? '5 4' : undefined}
+                    markerEnd={`url(#p400-edge-arrow${edge.isTimeout ? '-timeout' : ''})`}
+                  >
+                    {edge.label && <title>{edge.label}</title>}
+                  </path>
+                )
+              })}
+              {placed.map((node) => (
+                <g key={node.id}>
+                  <rect
+                    x={node.x}
+                    y={node.y}
+                    width={BOX_W}
+                    height={BOX_H}
+                    rx={8}
+                    fill="var(--card)"
+                    stroke={nodeStroke(node)}
+                    strokeWidth={node.isStart ? 1.75 : 1.125}
+                  />
+                  <circle cx={node.x + 15} cy={node.y + 17} r={3.5} fill={nodeAccent(node)} />
+                  <text
+                    x={node.x + 25}
+                    y={node.y + 21}
+                    fill="var(--muted-foreground)"
+                    fontSize={9.5}
+                    fontWeight={600}
+                    letterSpacing="0.08em"
+                  >
+                    {(node.isStart ? `${ru.admin.start} · ` : '') +
+                      ru.admin.nodeTypes[node.type].toUpperCase()}
+                  </text>
+                  {wrap(node.text).map((line, i) => (
+                    <text
+                      key={line}
+                      x={node.x + 15}
+                      y={node.y + 44 + i * 15}
+                      fill="var(--foreground)"
+                      fontSize={11.5}
+                      fontWeight={500}
+                    >
+                      {line}
+                    </text>
+                  ))}
+                </g>
               ))}
-            </g>
-          ))}
-        </svg>
-      </div>
+            </svg>
+          </div>
+        </div>
+      </Card>
     </div>
   )
 }

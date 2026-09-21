@@ -21,12 +21,21 @@ export const ru = {
     start: 'Начать',
     graph: 'Граф сценария',
     replay: 'Пройти ещё раз',
+    difficulty: 'Сложность',
+    difficultyLevels: ['', 'Базовый', 'Средний', 'Сложный'] as const,
   },
   nav: {
     scenarios: 'Сценарии',
     profile: 'Профиль',
     leaderboard: 'Рейтинг',
     signOut: 'Выйти',
+    // Controls on the floating shell. `theme` is one label for both directions on purpose:
+    // the button's icon says which way it goes, and a label that flips mid-interaction is
+    // read out twice by a screen reader.
+    menu: 'Меню',
+    close: 'Закрыть',
+    theme: 'Сменить тему',
+    exitPlay: 'Выйти из сценария',
   },
   auth: {
     title: 'Вход в тренажёр',
@@ -40,6 +49,11 @@ export const ru = {
   player: {
     loyalty: 'Лояльность пассажира',
     safety: 'Рейтинг безопасности',
+    // The in-play HUD is ~150px wide per meter on a 375px phone, where the full labels
+    // truncate to "ЛОЯЛЬНОСТЬ ПА…" / "РЕЙТИНГ БЕЗОПА…". Unambiguous on their own, and the
+    // full label still reaches assistive tech through the meter's aria-label.
+    loyaltyShort: 'Лояльность',
+    safetyShort: 'Безопасность',
     timeLeft: 'Осталось',
     seconds: 'с',
     timedOut: 'Время вышло — решение принято за вас.',
@@ -86,6 +100,7 @@ export const ru = {
     history: 'История поездок',
     historyEmpty: 'Пока ни одного завершённого сценария.',
     expertRun: 'Путь наставника',
+    progress: 'Прогресс уровня',
   },
   leaderboard: {
     title: 'Рейтинг проводников',

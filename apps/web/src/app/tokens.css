@@ -1,67 +1,149 @@
 /*
- * Проводник 400 — design tokens. The single source of colour, radius and type.
+ * Проводник 400 — design tokens. The single source of colour, elevation, radius and type.
  * Do not hard-code colours in components — use the Tailwind utilities generated here.
  *
- * Calibrated against the organizer's own sites (measured 2026-09-21):
- *   mt-hackathon.ru   bg #1a1230 · surface #2c2e59 · accent #3f6fd1 · text #f5f8fd · r12 + pill
- *   transport.mos.ru  light #f3f5f7 · link #0a51a1 · orange #ff6b00 · r8 · weights 400/700
- * We take their dark treatment and their blue, and deliberately diverge twice:
- *   1. Accent is blue, not crimson. Both meters need red for danger; an accent that
- *      reads as the same red destroys the signal.
- *   2. Cards get a visible border. Their own surface-on-bg is 1.4:1 — invisible. A
- *      screen with meters and a leaderboard cannot afford that, so --border carries
- *      the boundary (3.61:1 on bg) and the fill only hints at it.
+ * Two themes, both measured off the organizer's own sites (2026-09-21):
+ *   light  transport.mos.ru   bg #f3f5f7 · card #fff · link #0a51a1 · r8 · shadow 0 4px 10px/.05
+ *   dark   mt-hackathon.ru    bg #1a1230 · surface #2c2e59 · accent #3f6fd1 · text #f5f8fd
+ * Light is the default: it is the face of Moscow Transport its staff know.
+ *
+ * Structure matters here. @theme holds only RAW ramps, which never flip. Everything a
+ * component touches is a semantic var set twice — once in :root (light), once in .dark —
+ * and re-exported as a utility through @theme inline. That is why `text-safe`, `bg-loyalty`
+ * and `bg-brand` change with the theme while `bg-ink-900` does not.
  *
  * Type is Moscow Sans, the organizer's brand face, used with their permission.
  */
 
 @theme {
-  /* Surface ramp — anchored on the two values measured on mt-hackathon.ru */
+  /* ——— Raw dark ramp: mt-hackathon.ru, measured ——— */
   --color-ink-950: #14102b; /* page, one step deeper than theirs for contrast headroom */
   --color-ink-900: #1a1230; /* their body background, exact */
   --color-ink-800: #241c42; /* raised surface */
   --color-ink-700: #2c2e59; /* their card surface, exact */
   --color-ink-600: #3c3f70;
-  --color-ink-500: #6a6c9b; /* their border tone — 3.61:1 on ink-900, the boundary colour */
+  --color-ink-500: #6a6c9b; /* 3.61:1 on ink-900 — form borders need 3:1 */
   --color-ink-400: #a0a4c0; /* muted text — 7.3:1 */
-  --color-ink-200: #bec1c6; /* their secondary text, exact — 9.92:1 */
+  --color-ink-200: #bec1c6; /* their secondary text, exact */
   --color-ink-50: #f5f8fd; /* their body text, exact — 16.82:1 */
 
-  /* The one accent — their blue. Fills: bg-brand (white text 4.77:1).
-   * As text on dark it is only 3.76:1, so text uses brand-text (5.9:1). */
-  --color-brand: #3f6fd1;
-  --color-brand-hover: #3560b8;
-  --color-brand-text: #6f93e0;
+  /* ——— Raw light ramp: transport.mos.ru, measured ——— */
+  --color-paper-50: #ffffff; /* their card fill, exact */
+  --color-paper-100: #f3f5f7; /* their page background, exact */
+  --color-paper-200: #e8ebed; /* their chip fill, exact — wells and meter tracks */
+  --color-paper-300: #e3e7ec; /* hairline. Theirs is #ebebeb; one step darker so a card
+                               * still reads as a card when shadows are suppressed. */
+  --color-paper-500: #75849a; /* 3.8:1 on white — form borders. Theirs is rgba(130,140,150,.4)
+                               * at ~1.9:1, which fails WCAG 1.4.11; this is a deliberate fix. */
+  --color-paper-600: #5a6775; /* muted text — 5.29:1 on their bg. Theirs is #a2a9b1 at 2.17:1,
+                               * used for every date on the site. The other deliberate fix. */
+  --color-paper-800: #2b3440;
+  --color-paper-950: #10151c; /* 16.77:1. Theirs is pure #000; this is a hair softer. */
 
-  /* Meter + outcome semantics. Red belongs to danger only, never to the brand.
-   * All three clear 5.9:1 on ink-900, so they may carry text, not just fills. */
-  --color-safe: #3ddc97; /* meter healthy · outcome success — 10.13:1 */
-  --color-warn: #ffb03a; /* meter nearing threshold · outcome partial — 9.82:1 */
-  --color-danger: #ff5c6b; /* meter below threshold · outcome fail · timeout — 5.96:1 */
+  /* ——— Brand blue. Each theme takes its own site's value. ——— */
+  --color-blue-600: #0a51a1; /* transport.mos.ru link blue — 7.1:1 on light bg */
+  --color-blue-700: #08417f;
+  --color-blue-400: #3f6fd1; /* mt-hackathon.ru accent, exact */
+  --color-blue-300: #6f93e0; /* 6.08:1 on ink-950 — the dark theme's text-weight blue */
 
-  /* Loyalty vs safety: the two meters must never be confused at a glance, so they
-   * differ in hue as well as fill level. */
-  --color-loyalty: #c79bff;
-  --color-safety: #59c2ff;
-
-  /* Commissioner is the closest public face to Moscow Sans, measured from their own OTF
-   * (transport.mos.ru serves it unpacked): 2.13% weighted deviation against Inter's 5.53%.
-   * The ratio that matters is lowercase-to-capital height — Moscow Sans 0.706,
-   * Commissioner 0.696, Inter 0.750 — which is why Inter looked wrong beside their site.
-   * Cantarell measures closer still (1.36%) but has no Cyrillic on Google Fonts.
-   * Loaded by next/font in layout.tsx; the family name comes from the variable it injects. */
+  /* Commissioner is the closest public face to Moscow Sans, measured from their own OTF:
+   * 2.13% weighted deviation against Inter's 5.53%. The ratio that matters is
+   * lowercase-to-capital height — Moscow Sans 0.706, Commissioner 0.696, Inter 0.750 —
+   * which is why Inter looked wrong beside their site. Cantarell measures closer still
+   * (1.36%) but has no Cyrillic on Google Fonts. Loaded by next/font in layout.tsx. */
   --font-sans:
     var(--font-commissioner), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
 
-  /* Their radius language: 12px cards, full pills for chips and meters. */
-  --radius-card: 0.75rem;
+  /* ——— Shape. transport.mos.ru is 8px for every tile, button and input, 4px for tag
+   * chips, 16px for the big fused form slabs, 100px for circular controls. We follow it,
+   * and reserve the pill for the floating shell — which is our one deliberate departure,
+   * since their header is a solid full-bleed bar. ——— */
+  --radius-card: 0.5rem; /* 8px — tiles, buttons, inputs, panels */
+  --radius-chip: 0.25rem; /* 4px — tags and chips are rounded rects, not pills */
+  --radius-slab: 1rem; /* 16px — the one-off large form/hero block */
+
+  /* ——— Type. Their scale is a portal's: H1 62/62 desktop, 32/32 mobile; body 20/27.6
+   * desktop, 16/21.92 mobile; letter-spacing normal everywhere. Ours is a step tighter
+   * because an app screen carries meters and tables, not article prose. ——— */
+  --text-display: 2rem;
+  --text-display--line-height: 1.08;
+  --text-display--font-weight: 700;
+  --text-display-lg: 3rem;
+  --text-display-lg--line-height: 1.04;
+  --text-display-lg--font-weight: 700;
+  --text-lead: 1.25rem;
+  --text-lead--line-height: 1.35;
+  --text-lead--font-weight: 500;
+  --text-lead-lg: 1.5rem;
+  --text-lead-lg--line-height: 1.33;
+  --text-lead-lg--font-weight: 500;
+  --text-eyebrow: 0.6875rem;
+  --text-eyebrow--line-height: 1;
+  --text-eyebrow--font-weight: 600;
+
+  /* One tracking value for the uppercase blue eyebrow — mt-hackathon.ru's single most
+   * repeated device (16 instances). Theirs is letter-spacing:normal at 18px; at our 11px
+   * uppercase it needs a little air. */
+  --tracking-eyebrow: 0.06em;
 }
 
-/* Semantic tokens (shadcn/ui contract). The dark surface is the only theme —
- * a training tool used on a train, and the organizer's own dark treatment. */
+/* ——————— Light (default) ——————— */
 :root {
+  color-scheme: light;
+  --radius: 0.5rem;
+
+  --background: var(--color-paper-100);
+  --foreground: var(--color-paper-950);
+  --card: var(--color-paper-50);
+  --card-foreground: var(--color-paper-950);
+  --popover: var(--color-paper-50);
+  --popover-foreground: var(--color-paper-950);
+  --primary: var(--color-blue-600);
+  --primary-foreground: #ffffff;
+  --secondary: var(--color-paper-200);
+  --secondary-foreground: var(--color-paper-800);
+  --muted: var(--color-paper-200);
+  --muted-foreground: var(--color-paper-600);
+  --accent: #e6eef8; /* soft brand tint — brand text on it 6.64:1 */
+  --accent-foreground: var(--color-blue-700);
+  --border: var(--color-paper-300);
+  --input: var(--color-paper-500);
+  --ring: var(--color-blue-600);
+
+  --brand: var(--color-blue-600);
+  --brand-hover: var(--color-blue-700);
+  --brand-text: var(--color-blue-600); /* 7.1:1 — no separate text tone needed on light */
+
+  /* Meter and outcome semantics. Red belongs to danger only, never to the brand.
+   * All clear 4.5:1 on the page background, so they may carry text, not just fills. */
+  --safe: #0b7a52; /* 4.9:1 — fills, meters, borders */
+  --warn: #9a5800; /* 5.1:1 */
+  --danger: #c1121f; /* 5.7:1 */
+  --destructive: #c1121f;
+
+  /* Text-weight tones, the same idea as --brand-text above. The fill tones start at only
+   * ~5:1 on the page, so a chip that tints its OWN background with the same hue eats the
+   * remaining headroom: text-safe on bg-safe/12 over a bg-safe/8 card measures 3.76:1.
+   * These clear 4.5:1 on every ground we actually use, worst case 4.62:1 on that double
+   * tint. In dark the fill tones already run 10:1+, so there they are simply aliases. */
+  --safe-text: #0a6244; /* card 7.39 · page 6.76 · tint 5.74 · double tint 5.18 */
+  --warn-text: #8a4f00; /* card 6.56 · page 6.01 · tint 5.10 · double tint 4.62 */
+  --danger-text: #a50e19; /* card 7.85 · page 7.18 · tint 5.86 · double tint 5.16 */
+
+  /* Loyalty vs safety must never be confusable at a glance, so they differ in hue as
+   * well as fill level. Violet / blue on light, violet / cyan on dark. */
+  --loyalty: #6d28d9; /* 6.5:1 */
+  --safety: #0b6fb0; /* 4.91:1 */
+
+  /* Elevation. --elev-1 is transport.mos.ru's card shadow, exact, used 22× on their site. */
+  --elev-1: 0 4px 10px 0 rgb(0 0 0 / 0.05);
+  --elev-2: 0 6px 16px -2px rgb(10 30 50 / 0.12), 0 2px 4px -1px rgb(10 30 50 / 0.08);
+  --elev-3: 0 12px 28px -6px rgb(10 30 50 / 0.18), 0 2px 6px -1px rgb(10 30 50 / 0.08);
+}
+
+/* ——————— Dark ——————— */
+.dark {
   color-scheme: dark;
-  --radius: 0.75rem;
 
   --background: var(--color-ink-950);
   --foreground: var(--color-ink-50);
@@ -69,20 +151,43 @@
   --card-foreground: var(--color-ink-50);
   --popover: var(--color-ink-800);
   --popover-foreground: var(--color-ink-50);
-  --primary: var(--color-brand);
+  --primary: var(--color-blue-400);
   --primary-foreground: #ffffff;
   --secondary: var(--color-ink-700);
   --secondary-foreground: var(--color-ink-50);
   --muted: var(--color-ink-800);
   --muted-foreground: var(--color-ink-400);
-  --accent: var(--color-ink-700);
+  --accent: #232a52; /* soft brand tint — ink-50 on it 12.94:1 */
   --accent-foreground: var(--color-ink-50);
-  --destructive: var(--color-danger);
-  --border: var(--color-ink-500); /* carries the card boundary — see the header note */
+  --border: #4a4d80; /* hairline, 2.27:1 on card — paired with the inset highlight below */
   --input: var(--color-ink-500); /* 3.61:1 — form borders need 3:1 */
-  --ring: var(--color-brand-text); /* focus ring must be visible on dark: 5.9:1 */
+  --ring: var(--color-blue-300); /* focus ring must be visible on dark: 6.08:1 */
+
+  --brand: var(--color-blue-400);
+  --brand-hover: #3560b8;
+  --brand-text: var(--color-blue-300); /* blue-400 is only 3.87:1 on ink-950, so text uses this */
+
+  --safe: #3ddc97; /* 10.43:1 */
+  --warn: #ffb03a; /* 10.12:1 */
+  --danger: #ff5c6b; /* 6.14:1 */
+  --destructive: #ff5c6b;
+
+  /* Aliases here: these tones have contrast to spare on ink, tinted ground included. */
+  --safe-text: var(--safe);
+  --warn-text: var(--warn);
+  --danger-text: var(--danger);
+  --loyalty: #c79bff; /* 8.4:1 */
+  --safety: #59c2ff; /* 9.3:1 */
+
+  /* A drop shadow on #14102b is invisible, so dark elevation is carried by an inset top
+   * highlight — the lit edge reads as "above" where a shadow cannot. */
+  --elev-1: inset 0 1px 0 rgb(255 255 255 / 0.04);
+  --elev-2: 0 8px 24px -8px rgb(0 0 0 / 0.6), inset 0 1px 0 rgb(255 255 255 / 0.06);
+  --elev-3: 0 16px 40px -12px rgb(0 0 0 / 0.75), inset 0 1px 0 rgb(255 255 255 / 0.08);
 }
 
+/* Re-export the semantic layer as Tailwind utilities. `inline` is what makes the var
+ * reference survive into the utility, so every one of these flips with the theme. */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -103,15 +208,32 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-text: var(--brand-text);
+  --color-safe: var(--safe);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-safe-text: var(--safe-text);
+  --color-warn-text: var(--warn-text);
+  --color-danger-text: var(--danger-text);
+  --color-loyalty: var(--loyalty);
+  --color-safety: var(--safety);
+
+  --shadow-card: var(--elev-1);
+  --shadow-lift: var(--elev-2);
+  --shadow-float: var(--elev-3);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* The countdown ring and meter fills animate; respect the OS setting. `!important` is load
- * bearing here — without it any component-level transition wins and the opt-out silently
- * does nothing. Biome's fix for this rule deletes the guarantee, so it stays suppressed. */
+/* The countdown ring, meter fills and the drawer all animate; respect the OS setting.
+ * `!important` is load bearing here — without it any component-level transition wins and
+ * the opt-out silently does nothing. Biome's fix for this rule deletes the guarantee, so
+ * it stays suppressed. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

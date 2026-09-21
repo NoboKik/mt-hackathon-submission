@@ -13,3 +13,56 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 }
+
+@layer components {
+  /*
+   * The nav drawer is a native <dialog> opened with showModal(): focus trap, Esc to close,
+   * inert backdrop and top-layer stacking all come from the platform, so there is no Sheet
+   * component and no Radix dependency behind this.
+   *
+   * It slides in from the right, full-bleed — the pattern mt-hackathon.ru itself uses
+   * (a fixed #1a1230 overlay parked at translateX(100%)). transport.mos.ru has no drawer
+   * at all, so there is nothing to match there.
+   *
+   * display and overlay must be in the transition list with allow-discrete, otherwise the
+   * element is yanked out of the top layer on close and the exit animation never renders.
+   * Browsers without @starting-style simply pop it in, which is an acceptable floor.
+   */
+  .drawer {
+    translate: 100% 0;
+    transition:
+      translate 260ms ease,
+      display 260ms allow-discrete,
+      overlay 260ms allow-discrete;
+  }
+
+  .drawer[open] {
+    translate: 0 0;
+  }
+
+  @starting-style {
+    .drawer[open] {
+      translate: 100% 0;
+    }
+  }
+
+  .drawer::backdrop {
+    background: rgb(8 14 26 / 0.55);
+    backdrop-filter: blur(3px);
+    opacity: 0;
+    transition:
+      opacity 260ms ease,
+      display 260ms allow-discrete,
+      overlay 260ms allow-discrete;
+  }
+
+  .drawer[open]::backdrop {
+    opacity: 1;
+  }
+
+  @starting-style {
+    .drawer[open]::backdrop {
+      opacity: 0;
+    }
+  }
+}
