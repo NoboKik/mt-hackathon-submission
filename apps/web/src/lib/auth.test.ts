@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hashPassword, sign, verify, verifyPassword } from './auth'
+import { hashPassword, inviteOk, sign, verify, verifyPassword } from './auth'
 
 // auth.ts reads AUTH_SECRET lazily, so setting it here — after the import, before any test —
 // is enough to keep these assertions off the dev fallback secret.
@@ -67,5 +67,36 @@ describe('session token', () => {
   it('rejects a malformed token', () => {
     expect(verify('', NOW)).toBeNull()
     expect(verify(`${USER}.${NOW + 60}`, NOW)).toBeNull()
+  })
+})
+
+describe('demo invite', () => {
+  const withInvite = (value: string | undefined, fn: () => void) => {
+    const prev = process.env.DEMO_INVITE
+    if (value === undefined) delete process.env.DEMO_INVITE
+    else process.env.DEMO_INVITE = value
+    try {
+      fn()
+    } finally {
+      if (prev === undefined) delete process.env.DEMO_INVITE
+      else process.env.DEMO_INVITE = prev
+    }
+  }
+
+  it('is open when DEMO_INVITE is unset or empty', () => {
+    withInvite(undefined, () => expect(inviteOk(undefined)).toBe(true))
+    withInvite('', () => expect(inviteOk('anything')).toBe(true))
+  })
+
+  it('opens only for the right code', () => {
+    withInvite('a1b2c3d4e5f60718', () => {
+      expect(inviteOk('a1b2c3d4e5f60718')).toBe(true)
+      expect(inviteOk('a1b2c3d4e5f60719')).toBe(false)
+      expect(inviteOk(undefined)).toBe(false)
+    })
+  })
+
+  it('rejects a different length without throwing', () => {
+    withInvite('a1b2c3d4e5f60718', () => expect(inviteOk('a1b2')).toBe(false))
   })
 })

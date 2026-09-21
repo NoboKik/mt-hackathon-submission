@@ -230,6 +230,7 @@ export const ru = {
     unauthorized: 'Войдите в систему, чтобы продолжить.',
     badRequest: 'Некорректный запрос.',
     badCredentials: 'Неверный email или пароль.',
+    demoInviteRequired: 'Демо-доступ открывается по ссылке-приглашению.',
     demoUserMissing: 'Демо-пользователь не найден. Запустите pnpm db:seed.',
     scenarioNotFound: 'Сценарий не найден.',
     sessionNotFound: 'Сессия не найдена.',

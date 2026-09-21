@@ -59,6 +59,15 @@ export function verify(token: string, nowUnix: number): string | null {
   return userId
 }
 
+/** The demo door's invite code. DEMO_INVITE unset or empty keeps it open (dev); read lazily. */
+export function inviteOk(given: string | undefined): boolean {
+  const want = process.env.DEMO_INVITE
+  if (!want) return true
+  const a = Buffer.from(given ?? '')
+  const b = Buffer.from(want)
+  return a.length === b.length && timingSafeEqual(a, b)
+}
+
 export async function setSessionCookie(userId: string) {
   const store = await cookies()
   store.set(COOKIE, sign(userId, Math.floor(Date.now() / 1000) + MAX_AGE_SEC), {

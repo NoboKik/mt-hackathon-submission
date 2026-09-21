@@ -1,20 +1,31 @@
 'use client'
 
 import { useMutation } from '@tanstack/react-query'
-import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, useState } from 'react'
 import { Button, Card, Eyebrow, Field } from '@/components/ui'
 import { ru } from '@/i18n/ru'
 import { post } from '@/lib/client'
 
+// useSearchParams() needs a Suspense boundary, or `next build` fails prerendering this page.
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginCard />
+    </Suspense>
+  )
+}
+
+function LoginCard() {
   const router = useRouter()
+  // A demo link is /login?invite=…; the server checks it against DEMO_INVITE.
+  const invite = useSearchParams().get('invite') ?? undefined
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
   const signIn = useMutation({
     mutationFn: (body?: { email: string; password: string }) =>
-      post(body ? '/auth/login' : '/auth/demo', body),
+      body ? post('/auth/login', body) : post('/auth/demo', { invite }),
     onSuccess: () => router.push('/'),
   })
 
