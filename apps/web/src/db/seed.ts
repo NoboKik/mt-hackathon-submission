@@ -5,16 +5,9 @@
 // Run with `pnpm db:seed`.
 
 import { randomBytes, randomUUID } from 'node:crypto'
-import { readdirSync, readFileSync } from 'node:fs'
 import { basename } from 'node:path'
-import {
-  COMPETENCIES,
-  type Competency,
-  type Outcome,
-  type Scenario,
-  score,
-  validateScenario,
-} from '@p400/shared'
+import { COMPETENCIES, type Competency, type Outcome, type Scenario, score } from '@p400/shared'
+import { requireScenarios } from '@p400/shared/content'
 import { sql } from 'drizzle-orm'
 import { hashPassword } from '@/lib/auth'
 import { db } from './index'
@@ -194,35 +187,9 @@ export function generateSeedData(list: Scenario[], passwordHash: string, now = D
   return { users: [demo, ...crew], sessions: [...rows, ...demoRows] }
 }
 
-// Mirrors packages/shared/scripts/validate-content.ts: a syntax error must name its file too.
-function parseScenario(file: string, dir: URL) {
-  try {
-    const data = JSON.parse(readFileSync(new URL(file, dir), 'utf8'))
-    return validateScenario(data, basename(file, '.json'))
-  } catch (e) {
-    return { ok: false as const, errors: [`invalid JSON: ${e instanceof Error ? e.message : e}`] }
-  }
-}
-
-function loadScenarios(): Scenario[] {
-  const dir = new URL('../../../../content/scenarios/', import.meta.url)
-  const files = readdirSync(dir)
-    .filter((f) => f.endsWith('.json'))
-    .sort()
-  if (!files.length) console.warn('seed: no files in content/scenarios — seeding users only')
-  return files.map((file) => {
-    const result = parseScenario(file, dir)
-    if (!result.ok) {
-      console.error(`seed: ${file} is invalid`)
-      for (const e of result.errors) console.error(`  ${e}`)
-      process.exit(1)
-    }
-    return result.scenario
-  })
-}
-
 async function main() {
-  const list = loadScenarios()
+  // Throws on an empty folder or an invalid file: seeding zero scenarios is the bug, not a state.
+  const list = requireScenarios()
   // One throwaway password for every seeded account: nobody signs in with a password. The demo
   // user gets in through POST /api/auth/demo, the other 30 are leaderboard colleagues.
   const hash = hashPassword(randomBytes(24).toString('base64url'))

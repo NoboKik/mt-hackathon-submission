@@ -40,15 +40,17 @@ test('checks the id against the file name', () => {
   expect(status).toBe(1)
 })
 
-test('an empty or missing folder is 0 files and exits 0', () => {
+// An empty folder must fail: otherwise CI, the seed and the catalogue go green over nothing.
+test('an empty or missing folder is a failure, not a pass', () => {
   const { status, out } = run({})
   expect(out).toContain('validate:content: 0 file(s), 0 invalid')
-  expect(status).toBe(0)
+  expect(out).toContain('no scenarios in')
+  expect(status).toBe(1)
 
   const missing = spawnSync(process.execPath, ['--import', 'tsx', script, '/nonexistent/p400'], {
     cwd: import.meta.dirname,
     encoding: 'utf8',
   })
   expect(missing.stdout).toContain('validate:content: 0 file(s), 0 invalid')
-  expect(missing.status).toBe(0)
+  expect(missing.status).toBe(1)
 })
