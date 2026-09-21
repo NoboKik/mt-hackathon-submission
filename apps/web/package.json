@@ -8,7 +8,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "db:migrate": "drizzle-kit migrate",
-    "db:seed": "tsx --env-file-if-exists=.env src/db/seed.ts"
+    "db:seed": "tsx --env-file-if-exists=.env src/db/seed.ts",
+    "user:add": "tsx --env-file-if-exists=.env src/db/user-add.ts"
   },
   "dependencies": {
     "@p400/shared": "workspace:*",

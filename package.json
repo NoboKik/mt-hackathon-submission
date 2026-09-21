@@ -14,7 +14,8 @@
     "lint": "biome check .",
     "validate:content": "pnpm --filter @p400/shared validate:content",
     "db:migrate": "pnpm --filter web db:migrate",
-    "db:seed": "pnpm --filter web db:seed"
+    "db:seed": "pnpm --filter web db:seed",
+    "user:add": "pnpm --filter web user:add"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14"

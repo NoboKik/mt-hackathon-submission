@@ -95,6 +95,7 @@ pnpm test               # тесты (Vitest)
 pnpm build              # сборка всех пакетов
 pnpm db:migrate         # миграции Drizzle
 pnpm db:seed            # полное перезаполнение базы демо-данными (удаляет пользователей и сессии)
+pnpm user:add           # создать учётную запись или сбросить пароль (см. «Учётные записи»)
 ```
 
 Не запускайте `pnpm dev` одновременно с `docker compose up`: оба занимают порты 3000/80.
@@ -145,6 +146,18 @@ infra/deploy.sh backup       # pg_dump в infra/backups/, хранится 7 д�
 ```
 
 `deploy.sh` без swap на сервере сам добавляет 2 GB `/swapfile`: сборке Next.js может не хватить 4 GB памяти.
+
+### Учётные записи
+
+Регистрации и админ-панели нет: учётные записи заводит оператор. Пароль генерируется и
+печатается один раз.
+
+```bash
+docker compose -f infra/docker-compose.yml run --rm migrate pnpm user:add --email i.petrov@vsm400.ru --name "Иван Петров" --depot "Депо Москва-Октябрьская"
+docker compose -f infra/docker-compose.yml run --rm migrate pnpm user:add --email i.petrov@vsm400.ru --reset
+```
+
+`deploy.sh reset-demo` удаляет и эти учётные записи.
 
 При DDoS-атаке: включить в Cloudflare проксирование (оранжевое облако) для `mt-hackathon` и
 выставить SSL/TLS в режим Full (strict).
