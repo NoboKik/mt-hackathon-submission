@@ -37,10 +37,12 @@ function Wordmark({
       )}
     >
       <TrainFront
-        className={cn('size-5 shrink-0', !onHeader && 'text-brand-text')}
+        className={cn('size-6 shrink-0', !onHeader && 'text-brand-text')}
         aria-hidden="true"
       />
-      <span className="text-sm font-bold tracking-tight whitespace-nowrap">{ru.app.name}</span>
+      <span className="text-lg font-bold tracking-tight whitespace-nowrap sm:text-xl">
+        {ru.app.name}
+      </span>
     </Link>
   )
 }

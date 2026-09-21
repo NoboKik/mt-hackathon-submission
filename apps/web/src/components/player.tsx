@@ -197,14 +197,14 @@ export function Player({ scenarioId }: { scenarioId: string }) {
   }
 
   return (
-    <>
-      {/* The meters sit in the page and stick under the header, as they did before the
-          floating-HUD experiment. top-14 is the header's height. */}
-      <div className="border-border bg-card rounded-card shadow-card sticky top-14 z-10 border p-4">
+    <div className={cn(page, 'flex flex-col gap-5')}>
+      {/* The meters sit in the page and stick under the header. top-14 is the header's height;
+          the extra 4 keeps a gap so the card does not butt against the red bar. */}
+      <div className="border-border bg-card rounded-card shadow-card sticky top-18 z-10 border p-4">
         <MeterPair meters={run.meters} deltas={run.deltas} />
       </div>
 
-      <div key={node.id} className={cn(page, 'flex flex-col gap-5')}>
+      <div key={node.id} className="flex flex-col gap-5">
         {run.steps
           .filter(
             (s): s is Extract<ClientNode, { type: 'consequence' }> => s.type === 'consequence',
@@ -226,7 +226,13 @@ export function Player({ scenarioId }: { scenarioId: string }) {
           <section className="flex flex-col gap-5">
             <Card pad="lg" className="flex items-start justify-between gap-4">
               <div className="flex min-w-0 flex-col gap-2">
-                <Eyebrow>{node.speaker}</Eyebrow>
+                {/* The narrator is the default voice and goes unlabelled; other speakers get a
+                    Russian label, falling back to the raw key rather than hiding it. */}
+                {node.speaker !== 'narrator' && (
+                  <Eyebrow>
+                    {ru.speakers[node.speaker as keyof typeof ru.speakers] ?? node.speaker}
+                  </Eyebrow>
+                )}
                 <p className="text-lead text-balance sm:text-lead-lg">{node.text}</p>
               </div>
               {/* The slot is held open for the whole node so the text beside it does not
@@ -237,8 +243,8 @@ export function Player({ scenarioId }: { scenarioId: string }) {
                 {!pending && <Countdown left={left} total={node.timerSec} />}
               </div>
             </Card>
-            <ul className="flex flex-col gap-3">
-              {node.choices.map((choice) => (
+            <ol className="flex flex-col gap-3">
+              {node.choices.map((choice, i) => (
                 <li key={choice.id}>
                   <button
                     type="button"
@@ -246,20 +252,23 @@ export function Player({ scenarioId }: { scenarioId: string }) {
                     onClick={() => submit(choice.id)}
                     className={cn(
                       surface({ interactive: true, pad: 'sm' }),
-                      'relative flex min-h-16 w-full items-center overflow-hidden text-left text-base leading-snug',
-                      // The brand accent that says "tappable", drawn as a pseudo-element so it
-                      // cannot fight the card's own border colour on hover.
-                      "before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-brand before:opacity-0 before:transition-opacity before:content-['']",
-                      'hover:before:opacity-100 focus-visible:before:opacity-100',
+                      'group flex min-h-16 w-full items-center gap-4 text-left text-base leading-snug',
+                      'transition-[background-color,box-shadow,border-color] hover:border-brand/50',
                       'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none',
                       'disabled:pointer-events-none disabled:opacity-50',
                     )}
                   >
+                    <span
+                      aria-hidden="true"
+                      className="rounded-chip bg-muted text-muted-foreground group-hover:bg-brand group-hover:text-primary-foreground group-focus-visible:bg-brand group-focus-visible:text-primary-foreground flex size-9 shrink-0 items-center justify-center text-sm font-bold tabular-nums transition-colors"
+                    >
+                      {i + 1}
+                    </span>
                     {choice.text}
                   </button>
                 </li>
               ))}
-            </ul>
+            </ol>
           </section>
         )}
 
@@ -284,15 +293,20 @@ export function Player({ scenarioId }: { scenarioId: string }) {
                 </ul>
               </section>
             )}
-            <Link
-              href={`/debrief/${run.sessionId}`}
-              className={buttonClass({ variant: 'primary', size: 'lg' })}
-            >
-              {ru.player.toDebrief}
-            </Link>
+            <div className="flex flex-wrap justify-center gap-3">
+              <Link
+                href={`/debrief/${run.sessionId}`}
+                className={buttonClass({ variant: 'primary', size: 'lg' })}
+              >
+                {ru.player.toDebrief}
+              </Link>
+              <Link href="/" className={buttonClass({ variant: 'outline', size: 'lg' })}>
+                {ru.debrief.toCatalogue}
+              </Link>
+            </div>
           </Card>
         )}
       </div>
-    </>
+    </div>
   )
 }

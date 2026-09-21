@@ -63,6 +63,13 @@ export const ru = {
     // The countdown is announced to screen readers only at these points, not every tick.
     timerLabel: 'Таймер решения',
   },
+  // Scenario JSON carries speaker keys; the narrator is never shown.
+  speakers: {
+    passenger: 'Пассажир',
+    conductor: 'Проводник',
+    dispatcher: 'Диспетчер',
+    medic: 'Медик',
+  },
   outcomes: {
     success: 'Успех',
     partial: 'Частично',
