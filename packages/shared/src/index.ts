@@ -4,6 +4,7 @@
 export * from './achievements'
 export * from './api'
 export * from './engine'
+export * from './profile'
 export * from './schema'
 export * from './score'
 export * from './validate'

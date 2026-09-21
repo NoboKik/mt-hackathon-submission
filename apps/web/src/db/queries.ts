@@ -2,9 +2,16 @@
 // no game rules. Everything is scoped to a user id — ownership is a WHERE clause, not a check
 // the caller can forget.
 
-import type { AchievementCode, FinishedRow } from '@p400/shared'
-import { Scenario, type ScenarioListItem } from '@p400/shared'
-import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm'
+import type {
+  AchievementCode,
+  EarnedAchievement,
+  FinishedRow,
+  MeUser,
+  ProfileSession,
+} from '@p400/shared'
+import { Scenario, type ScenarioListItem, THRESHOLD_END_ID } from '@p400/shared'
+import { and, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm'
+import { expertPathTaken } from '@/lib/api'
 import { db } from './index'
 import { type NewGameSession, scenarios, sessions, userAchievements, users } from './schema'
 
@@ -169,4 +176,82 @@ export async function unlockAchievements(userId: string, codes: AchievementCode[
     .onConflictDoNothing()
     .returning({ code: userAchievements.code })
   return rows.map((r) => r.code)
+}
+
+/** The four fields the profile header shows. No id: the caller already has it. */
+export async function userProfile(userId: string): Promise<MeUser | undefined> {
+  const rows = await db()
+    .select({
+      displayName: users.displayName,
+      position: users.position,
+      depot: users.depot,
+      avatar: users.avatar,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+  return rows.at(0)
+}
+
+/** Finished runs, newest first, flattened to the shape the pure aggregator takes. */
+export async function profileSessions(userId: string): Promise<ProfileSession[]> {
+  const rows = await db()
+    .select({
+      id: sessions.id,
+      scenarioId: sessions.scenarioId,
+      title: scenarios.title,
+      category: scenarios.category,
+      difficulty: scenarios.difficulty,
+      // NOTE: the whole scenario jsonb rides back per row to answer one boolean. The history
+      // is tens of rows; group by scenario first if it ever stops being.
+      json: scenarios.json,
+      outcome: sessions.outcome,
+      score: sessions.score,
+      loyalty: sessions.loyalty,
+      safety: sessions.safety,
+      finishedAt: sessions.finishedAt,
+      competencyDeltas: sessions.competencyDeltas,
+      path: sessions.path,
+    })
+    .from(sessions)
+    .innerJoin(scenarios, eq(scenarios.id, sessions.scenarioId))
+    .where(and(eq(sessions.userId, userId), isNotNull(sessions.finishedAt)))
+    .orderBy(desc(sessions.finishedAt))
+
+  // flatMap, not map: outcome, score and finished_at are nullable columns the WHERE clause has
+  // already ruled out, and a `?? 0` here would invent a run that never happened.
+  return rows.flatMap((r) =>
+    r.outcome && r.score !== null && r.finishedAt
+      ? [
+          {
+            id: r.id,
+            scenarioId: r.scenarioId,
+            title: r.title,
+            category: r.category,
+            difficulty: r.difficulty,
+            outcome: r.outcome,
+            score: r.score,
+            loyalty: r.loyalty,
+            safety: r.safety,
+            // drizzle hands back a Date for a timestamptz; the contract says ISO string.
+            finishedAt: r.finishedAt.toISOString(),
+            competencyDeltas: r.competencyDeltas,
+            // Always the success ending's expert path, never the end node this run reached:
+            // debriefFor throws on anything that is not an end node, and every seeded session is
+            // parked on scenario.start. engine.ts documents the two as equivalent anyway.
+            onExpertPath: expertPathTaken(r.json, THRESHOLD_END_ID, r.path),
+          },
+        ]
+      : [],
+  )
+}
+
+/** The badges this user has actually earned, oldest first. Locked ones are filled in by profileFor. */
+export async function earnedAchievements(userId: string): Promise<EarnedAchievement[]> {
+  const rows = await db()
+    .select({ code: userAchievements.code, earnedAt: userAchievements.earnedAt })
+    .from(userAchievements)
+    .where(eq(userAchievements.userId, userId))
+    .orderBy(userAchievements.earnedAt)
+  return rows.map((r) => ({ code: r.code, earnedAt: r.earnedAt.toISOString() }))
 }

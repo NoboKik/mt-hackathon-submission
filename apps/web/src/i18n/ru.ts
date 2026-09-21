@@ -1,4 +1,4 @@
-import type { AchievementCode } from '@p400/shared'
+import type { AchievementCode, Competency, LevelKey } from '@p400/shared'
 
 /**
  * All user-facing copy lives here. Components must not hard-code Russian strings.
@@ -20,6 +20,22 @@ export const ru = {
       safety: 'Ситуация вышла из-под контроля — сценарий прерван.',
     },
   },
+  // The five competency axes on the profile radar, in COMPETENCIES order.
+  competencies: {
+    conflict: 'Урегулирование конфликтов',
+    medical: 'Медицинская помощь',
+    safety: 'Безопасность и регламент',
+    service: 'Премиальный сервис',
+    communication: 'Коммуникация',
+  } satisfies Record<Competency, string>,
+  // Ranks, shared by the overall level and the per-competency ones. Cosmetic, but GET /me returns
+  // the key, so the words have to live somewhere that is not a component.
+  levels: {
+    trainee: 'Стажёр',
+    conductor: 'Проводник',
+    senior: 'Старший',
+    mentor: 'Наставник',
+  } satisfies Record<LevelKey, string>,
   // Badge copy, keyed by the codes in packages/shared/src/achievements.ts — the conditions live
   // there, the words live here, and there is no catalogue table holding a third copy. The
   // `satisfies` is the guard: a new code with no Russian for it fails typecheck.
