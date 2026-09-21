@@ -106,16 +106,19 @@ pnpm user:add           # создать учётную запись или сб
 
 Выполняется вручную один раз, все команды — от `root`.
 
-1. clo.ru: Ubuntu 24.04, 2 vCPU / 4 GB RAM. Записать публичный IP.
+1. clo.ru: Debian 13, от 1 vCPU / 2 GB RAM (`deploy.sh` добавит swap), диск от 10 GB, внешний IP.
 2. Cloudflare → `nobokik.dev` → DNS: запись **A** `mt-hackathon` → IP сервера,
    **Proxy status: DNS only (серое облако)**.
-3. На сервере: установить Docker из официального apt-репозитория Docker, открыть порты и
-   склонировать репозиторий в `/opt/p400`:
+3. На сервере: Docker из официального apt-репозитория Docker
+   (docs.docker.com/engine/install/debian), брандмауэр и клон в `/opt/p400`:
 
    ```bash
+   apt-get install -y git ufw
    ufw allow 22,80,443/tcp
    ufw enable
-   git clone https://github.com/NoboKik/mt-hackathon.git /opt/p400
+   ssh-keygen -t ed25519 -N '' -f ~/.ssh/github_deploy && cat ~/.ssh/github_deploy.pub
+   printf 'Host github.com\n  IdentityFile ~/.ssh/github_deploy\n' >> ~/.ssh/config
+   git clone git@github.com:NoboKik/mt-hackathon.git /opt/p400
    cd /opt/p400
    ```
 
@@ -136,7 +139,7 @@ pnpm user:add           # создать учётную запись или сб
 6. Ночной бэкап: `crontab -e` и строка
 
    ```bash
-   0 3 * * * /opt/p400/infra/deploy.sh backup
+   0 3 * * * /opt/p400/infra/deploy.sh backup >> /root/backup.log 2>&1
    ```
 
 ## Обслуживание
