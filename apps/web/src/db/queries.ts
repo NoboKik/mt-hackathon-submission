@@ -328,6 +328,20 @@ export async function generatedScenarios() {
     .orderBy(scenarios.createdAt)
 }
 
+/** Generated scenarios created in the last `hours`: what the daily LLM cap counts. */
+export async function generatedSince(hours: number) {
+  const [{ n }] = await db()
+    .select({ n: sql<number>`count(*)::int` })
+    .from(scenarios)
+    .where(
+      and(
+        eq(scenarios.source, 'generated'),
+        sql`${scenarios.createdAt} >= now() - make_interval(hours => ${hours})`,
+      ),
+    )
+  return n
+}
+
 /** Generated scenarios this user has never even started, oldest first: auto mode's queue. */
 export async function unplayedGenerated(userId: string) {
   const started = db()

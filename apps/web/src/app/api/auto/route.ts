@@ -4,7 +4,7 @@ import { ru } from '@/i18n/ru'
 import { fail } from '@/lib/api'
 import { currentUserId } from '@/lib/auth'
 import { LlmConfigError, llmConfig } from '@/llm/client'
-import { topUpPool } from '@/llm/pool'
+import { dailyLimitReached, topUpPool } from '@/llm/pool'
 
 /**
  * Auto mode's next scenario: the oldest generated one this user has never started. Never
@@ -25,5 +25,7 @@ export async function POST() {
     if (e instanceof LlmConfigError) return fail(503, ru.errors.llmNotConfigured)
     throw e
   }
+  // Nothing queued and nothing will be generated today: don't let /auto poll for two minutes.
+  if (await dailyLimitReached()) return fail(503, ru.errors.llmDailyLimit)
   return NextResponse.json({ status: 'generating' }, { status: 202 })
 }

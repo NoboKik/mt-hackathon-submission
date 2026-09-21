@@ -1,6 +1,11 @@
 // Auto mode's pool of generated scenarios. Generation takes 20–60 s, so players are only ever
 // served what is already here; this file refills it in the background.
-import { generatedScenarios, insertGenerated, unplayedGenerated } from '@/db/queries'
+import {
+  generatedScenarios,
+  generatedSince,
+  insertGenerated,
+  unplayedGenerated,
+} from '@/db/queries'
 import { LlmConfigError, llmConfig } from './client'
 import { generateScenario, incidentKeyOf } from './generate'
 import { pickSeed } from './seeds'
@@ -14,6 +19,16 @@ export async function topUp(n: number) {
     await insertGenerated(await generateScenario(seed, avoid))
   }
   return n
+}
+
+/**
+ * Players' generations per rolling 24 h: LLM_DAILY_LIMIT, default 100, 0 turns them off.
+ * Only topUpPool obeys it; fill.ts is operator-run and calls topUp directly.
+ */
+export async function dailyLimitReached() {
+  const raw = process.env.LLM_DAILY_LIMIT
+  const limit = raw && /^\d+$/.test(raw) ? Number(raw) : 100
+  return (await generatedSince(24)) >= limit
 }
 
 /** How many unplayed scenarios auto mode keeps ready per player. */
@@ -34,7 +49,13 @@ export async function topUpPool(userId: string, served?: string) {
     // The scenario just handed out has no session yet, but it is not waiting in the queue either.
     const ready = (await unplayedGenerated(userId)).filter((id) => id !== served)
     const missing = POOL_TARGET - ready.length
-    if (missing > 0) await topUp(missing)
+    for (let i = 0; i < missing; i++) {
+      if (await dailyLimitReached()) {
+        console.warn('auto: LLM_DAILY_LIMIT reached, pool top-up stopped')
+        break
+      }
+      await topUp(1)
+    }
   } catch (e) {
     // No key: nothing to do, and the route has already told the player.
     if (!(e instanceof LlmConfigError)) console.error('auto: pool top-up failed', e)
