@@ -15,6 +15,13 @@
       "when": 1789989712581,
       "tag": "0001_user_achievements",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790013035377,
+      "tag": "0002_scenario_source",
+      "breakpoints": true
     }
   ]
 }

@@ -34,6 +34,11 @@ export const scenarios = pgTable('scenarios', {
   difficulty: integer('difficulty').notNull(),
   json: jsonb('json').$type<Scenario>().notNull(), // the full validated scenario
   version: integer('version').notNull().default(1),
+  // Curated = a reviewed file in content/scenarios; generated = auto mode's LLM pool. Only
+  // curated scenarios reach the catalogue, the leaderboard and `full-route`.
+  source: text('source').$type<'curated' | 'generated'>().notNull().default('curated'),
+  status: text('status').$type<'approved' | 'draft'>().notNull().default('approved'),
+  createdAt: tstz('created_at').notNull().defaultNow(),
   updatedAt: tstz('updated_at').notNull().defaultNow(),
 })
 

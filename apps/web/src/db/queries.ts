@@ -27,14 +27,14 @@ export async function userByEmail(email: string) {
 }
 
 /** Parsed, not just cast: `$type<Scenario>()` is only a compile-time claim about a jsonb column. */
-export async function scenarioById(id: string): Promise<Scenario | undefined> {
+export async function scenarioById(id: string) {
   const rows = await db()
-    .select({ json: scenarios.json })
+    .select({ json: scenarios.json, source: scenarios.source, status: scenarios.status })
     .from(scenarios)
     .where(eq(scenarios.id, id))
     .limit(1)
   const row = rows.at(0)
-  return row && Scenario.parse(row.json)
+  return row && { scenario: Scenario.parse(row.json), source: row.source, status: row.status }
 }
 
 // A signed cookie outlives its user: every `pnpm db:seed` rotates ids.
@@ -68,6 +68,7 @@ export async function scenarioList(userId: string): Promise<ScenarioListItem[]> 
     })
     .from(scenarios)
     .leftJoin(played, eq(played.scenarioId, scenarios.id))
+    .where(eq(scenarios.source, 'curated'))
     .orderBy(scenarios.difficulty, scenarios.id)
 
   // NOTE: the whole scenario jsonb travels back to read four fields off it. The catalogue is
@@ -130,7 +131,7 @@ export async function advanceSession(
 
 /**
  * Everything the achievement evaluator needs: this user's finished runs with their scenario's
- * category, and how many scenarios exist at all (for `full-route`).
+ * category, and how many curated scenarios exist (for `full-route`).
  */
 export async function achievementInput(userId: string) {
   const rows = await db()
@@ -143,12 +144,16 @@ export async function achievementInput(userId: string) {
       safety: sessions.safety,
       finishedAt: sessions.finishedAt,
       path: sessions.path,
+      source: scenarios.source,
     })
     .from(sessions)
     .innerJoin(scenarios, eq(scenarios.id, sessions.scenarioId))
     .where(and(eq(sessions.userId, userId), isNotNull(sessions.finishedAt)))
 
-  const counted = await db().select({ total: sql<number>`count(*)::int` }).from(scenarios)
+  const counted = await db()
+    .select({ total: sql<number>`count(*)::int` })
+    .from(scenarios)
+    .where(eq(scenarios.source, 'curated'))
 
   // The nullable columns are narrowed here, at the boundary: a finished session always has an
   // outcome, a score and a finishedAt, but only the WHERE clause knows that.
@@ -161,6 +166,7 @@ export async function achievementInput(userId: string) {
     safety: r.safety,
     finishedAt: r.finishedAt?.getTime() ?? 0,
     choiceIds: r.path.map((step) => step.choiceId),
+    generated: r.source === 'generated',
   }))
   return { rows: finished, scenarioCount: counted.at(0)?.total ?? 0 }
 }
@@ -289,7 +295,9 @@ export async function leaderboardTotals(period: LeaderboardPeriod): Promise<Cach
              ${sessions.scenarioId} as scenario_id,
              max(${sessions.score}) as score
       from ${sessions}
-      where ${sessions.finishedAt} is not null ${since}
+      join ${scenarios} on ${scenarios.id} = ${sessions.scenarioId}
+      -- Curated only: an endless generated pool would let volume beat skill.
+      where ${sessions.finishedAt} is not null and ${scenarios.source} = 'curated' ${since}
       group by ${sessions.userId}, ${sessions.scenarioId}
     )
     select ${users.id} as "userId",

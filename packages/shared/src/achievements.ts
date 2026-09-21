@@ -35,6 +35,8 @@ export type FinishedRow = {
   finishedAt: number
   /** The path's choice ids in order, `'timeout'` included. Empty for seeded history. */
   choiceIds: string[]
+  /** An auto-mode scenario: counts for everything except `full-route`, whose pool is endless. */
+  generated?: boolean
 }
 
 /** The run just finished, plus the one fact the row can't carry: did it match the expert path. */
@@ -60,7 +62,7 @@ export type AchievementStats = {
   /** Finished runs, the one in hand included. */
   finished: number
   timeoutFree: number
-  /** Distinct scenarios finished, out of how many exist. */
+  /** Distinct curated scenarios finished, out of how many curated ones exist. */
   scenarios: number
   scenarioCount: number
   /** Distinct UTC days with a finish. */
@@ -89,7 +91,7 @@ export function statsFor(
   return {
     finished: rows.length,
     timeoutFree: rows.filter(timeoutFree).length,
-    scenarios: new Set(rows.map((r) => r.scenarioId)).size,
+    scenarios: new Set(rows.filter((r) => !r.generated).map((r) => r.scenarioId)).size,
     scenarioCount,
     days: new Set(times.map((t) => Math.floor(t / DAY_MS))).size,
     inHour,

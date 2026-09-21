@@ -296,7 +296,13 @@ async function main() {
     await tx.delete(sessions)
     await tx.delete(users)
     for (const s of list) {
-      const row = { title: s.title, category: s.category, difficulty: s.difficulty, json: s }
+      const row = {
+        title: s.title,
+        category: s.category,
+        difficulty: s.difficulty,
+        json: s,
+        source: 'curated' as const,
+      }
       await tx
         .insert(scenarios)
         .values({ id: s.id, ...row })

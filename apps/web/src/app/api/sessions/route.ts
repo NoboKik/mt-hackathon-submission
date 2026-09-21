@@ -17,8 +17,9 @@ export async function POST(req: Request) {
   if (!body.success) return fail(400, ru.errors.badRequest, body.error.issues)
 
   // Trusted content: the seed only stores scenarios that passed the validator.
-  const scenario = await scenarioById(body.data.scenarioId)
-  if (!scenario) return fail(404, ru.errors.scenarioNotFound)
+  const found = await scenarioById(body.data.scenarioId)
+  if (!found) return fail(404, ru.errors.scenarioNotFound)
+  const { scenario, source, status } = found
 
   const result = enter(scenario, scenario.start, scenario.initial)
   const node = endText(result.node)
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
   const res: StartSessionResponse = {
     sessionId: await createSession(values),
     seed,
-    scenario: { id: scenario.id, title: scenario.title, intro: scenario.intro },
+    scenario: { id: scenario.id, title: scenario.title, intro: scenario.intro, source, status },
     steps: result.steps,
     node,
     meters: result.meters,

@@ -11,10 +11,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const userId = await currentUserId()
   if (!userId) return fail(401, ru.errors.unauthorized)
 
-  const scenario = await scenarioById((await params).id)
-  if (!scenario) return fail(404, ru.errors.scenarioNotFound)
+  const found = await scenarioById((await params).id)
+  if (!found) return fail(404, ru.errors.scenarioNotFound)
 
-  const graph = scenarioGraph(scenario)
+  const graph = scenarioGraph(found.scenario)
   const res: AdminGraphResponse = {
     ...graph,
     // packages/shared holds no Russian, so the timeout branch arrives as a flag and gets its

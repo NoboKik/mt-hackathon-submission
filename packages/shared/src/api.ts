@@ -81,7 +81,14 @@ export type ScenarioListItem = {
 export type StartSessionResponse = {
   sessionId: string
   seed: number
-  scenario: { id: string; title: string; intro: string }
+  scenario: {
+    id: string
+    title: string
+    intro: string
+    /** `generated` + `draft` is auto mode's pool: the player shows the «ИИ-черновик» chip. */
+    source: 'curated' | 'generated'
+    status: 'approved' | 'draft'
+  }
   steps: ClientNode[]
   node: ClientNode
   meters: Meters

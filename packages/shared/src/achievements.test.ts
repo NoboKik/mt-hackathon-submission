@@ -98,6 +98,13 @@ test('full-route needs every scenario in the catalogue finished', () => {
   expect(codes(all.slice(1))).not.toContain('full-route')
 })
 
+test('auto-mode runs never stand in for a missing curated scenario', () => {
+  const all = Array.from({ length: CATALOGUE }, (_, i) => row({ scenarioId: `s-${i}` }))
+  const auto = row({ scenarioId: 'auto-medical-0a1b2c3d', generated: true })
+  expect(codes([...all.slice(1), auto])).not.toContain('full-route')
+  expect(codes([auto])).toContain('first-run')
+})
+
 // The threshold is load-bearing: above the real maximum it would ship a dead badge, and this is
 // the one badge a perfect demo run visibly unlocks.
 test('the expert run on the reference scenario scores 124 and clears honour-student', () => {
