@@ -285,6 +285,15 @@ export function generateSeedData(list: Scenario[], passwordHash: string, now = D
 }
 
 async function main() {
+  // Boot-time seeding (docker compose) must never wipe a live database: the transaction below
+  // deletes every user and session.
+  if (process.env.SEED_IF_EMPTY === '1') {
+    const [{ n }] = await db().select({ n: sql<number>`count(*)::int` }).from(users)
+    if (n > 0) {
+      console.log(`seed: skipped, ${n} users already present`)
+      process.exit(0) // postgres-js keeps its pool open, see below
+    }
+  }
   // Throws on an empty folder or an invalid file: seeding zero scenarios is the bug, not a state.
   const list = requireScenarios()
   // One throwaway password for every seeded account: nobody signs in with a password. The demo

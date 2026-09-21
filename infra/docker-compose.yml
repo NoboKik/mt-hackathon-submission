@@ -24,6 +24,21 @@ services:
       timeout: 5s
       retries: 10
 
+  # One-shot: migrations, then the first seed. SEED_IF_EMPTY keeps restarts from wiping real data.
+  migrate:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      target: build # has drizzle-kit, tsx and the source; the runner has neither
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-provodnik}:${POSTGRES_PASSWORD:-provodnik}@postgres:5432/${POSTGRES_DB:-provodnik}
+      SEED_IF_EMPTY: '1'
+    command: ['sh', '-c', 'pnpm db:migrate && pnpm db:seed']
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
   web:
     build:
       context: ..
@@ -40,6 +55,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     expose:
       - '3000'
     healthcheck:
