@@ -1,0 +1,150 @@
+# Проводник 400
+
+«Проводник 400» — тренажёр с элементами геймификации для проводников ВСМ: короткие (3–7 минут)
+сценарии нештатных ситуаций с ветвящимися диалогами, выбором на время и двумя шкалами —
+лояльностью пассажира и рейтингом безопасности. После каждого сценария — разбор с эталонным
+путём, а очки, компетенции, достижения и рейтинг среди коллег складываются в профиль сотрудника.
+
+## Попробовать
+
+```
+https://mt-hackathon.nobokik.dev/login?invite=<код-приглашения>
+```
+
+`<код-приглашения>` — заглушка, действующий код будет передан вместе с заявкой. Кнопка
+«Демо-вход» на этой странице входит под учётной записью демо-проводника.
+
+## Запустить локально
+
+Нужен только Docker с Compose v2.
+
+```bash
+git clone https://github.com/NoboKik/mt-hackathon.git
+cd mt-hackathon
+cp infra/.env.example infra/.env
+sed -i.bak "s/^AUTH_SECRET=.*/AUTH_SECRET=$(openssl rand -hex 32)/" infra/.env
+docker compose -f infra/docker-compose.yml up --build
+```
+
+Затем откройте `http://localhost`.
+
+- `AUTH_SECRET` обязателен: контейнер `web` работает с `NODE_ENV=production` и без ключа не
+  подписывает сессии.
+- При первом запуске сервис `migrate` сам применяет миграции и заполняет базу демо-данными.
+  Повторные запуски данные не трогают.
+- С пустым `DEMO_INVITE` демо-вход открыт без кода.
+
+Все переменные окружения с пояснениями — в `infra/.env.example`. Главные:
+
+- `AUTH_SECRET`, `POSTGRES_PASSWORD`, `SITE_ADDRESS` — обязательны на сервере, без них
+  `infra/deploy.sh` не запустится;
+- `DEMO_INVITE` — код приглашения для демо-входа (пусто — вход открыт);
+- `LLM_DAILY_LIMIT` — лимит генераций сценариев в автоматическом режиме за 24 часа
+  (по умолчанию 100, `0` — генерация выключена).
+
+## Архитектура
+
+```
+  Browser ──https──► DNS: Cloudflare, grey cloud ─► clo.ru VPS
+                                                      │ :443 (only public ports: 80, 443)
+                                        ┌─────────────┼──── Docker Compose ─────────────┐
+                                        │  caddy  ── TLS (Let's Encrypt), reverse proxy │
+                                        │    │                                          │
+                                        │  web :3000 ── Next.js: pages, /api, engine,   │
+                                        │    │          auto-mode pool top-up           │
+                                        │  postgres ── all state, volume `pgdata`       │
+                                        │  migrate ── one-shot: migrations, first seed  │
+                                        └────┼──────────────────────────────────────────┘
+                                             └──outbound, auto mode only──► LLM endpoint
+```
+
+- **Browser / DNS** — A-запись в Cloudflare без проксирования (серое облако) ведёт прямо на
+  сервер в России: проксируемые Cloudflare сайты в России замедляются.
+- **caddy** — единственный сервис с открытыми портами 80/443; сам получает сертификат
+  Let's Encrypt для `SITE_ADDRESS` и проксирует запросы в `web`.
+- **web** — Next.js: страницы, API (`app/api/*`), игровой движок, подсчёт очков и пополнение пула
+  сценариев автоматического режима. Сервер — единственный источник истины для очков и шкал.
+- **postgres** — PostgreSQL 16, всё состояние приложения, том `pgdata`; порт открыт только на
+  `127.0.0.1`.
+- **migrate** — одноразовый сервис: миграции и первичное заполнение базы, только если она пуста.
+- **LLM endpoint** — любой OpenAI-совместимый `/chat/completions`; нужен только автоматическому
+  режиму, остальное приложение работает без него.
+
+## Развёртывание у заказчика
+
+Тот же `infra/docker-compose.yml` разворачивается внутри сети ВСМ-400. Языковая модель работает
+на собственном GPU-сервере заказчика через vLLM или Ollama с открытой моделью и доступна по
+внутреннему адресу (`LLM_BASE_URL`): данные не покидают периметр, система полностью работает
+без выхода в интернет. В планах — корпоративный SSO и выгрузка результатов в LMS.
+
+## Разработка
+
+Нужны Node.js и pnpm. Для разработки скопируйте `apps/web/.env.example` в `apps/web/.env` и
+поднимите только базу:
+
+```bash
+cp apps/web/.env.example apps/web/.env
+docker compose -f infra/docker-compose.yml up -d postgres
+```
+
+```bash
+pnpm install            # зависимости монорепозитория
+pnpm dev                # Next.js в режиме разработки, http://localhost:3000
+pnpm validate:content   # проверка JSON-сценариев из content/scenarios по Zod-схеме
+pnpm test               # тесты (Vitest)
+pnpm build              # сборка всех пакетов
+pnpm db:migrate         # миграции Drizzle
+pnpm db:seed            # полное перезаполнение базы демо-данными (удаляет пользователей и сессии)
+```
+
+Не запускайте `pnpm dev` одновременно с `docker compose up`: оба занимают порты 3000/80.
+
+## Сервер (однократная настройка)
+
+Выполняется вручную один раз, все команды — от `root`.
+
+1. clo.ru: Ubuntu 24.04, 2 vCPU / 4 GB RAM. Записать публичный IP.
+2. Cloudflare → `nobokik.dev` → DNS: запись **A** `mt-hackathon` → IP сервера,
+   **Proxy status: DNS only (серое облако)**.
+3. На сервере: установить Docker из официального apt-репозитория Docker, открыть порты и
+   склонировать репозиторий в `/opt/p400`:
+
+   ```bash
+   ufw allow 22,80,443/tcp
+   ufw enable
+   git clone https://github.com/NoboKik/mt-hackathon.git /opt/p400
+   cd /opt/p400
+   ```
+
+4. Создать и заполнить `infra/.env` (как минимум `AUTH_SECRET`, `POSTGRES_PASSWORD`,
+   `SITE_ADDRESS=mt-hackathon.nobokik.dev`, `DEMO_INVITE`):
+
+   ```bash
+   cp infra/.env.example infra/.env
+   chmod 600 infra/.env
+   ```
+
+5. Первый запуск — сборка образа, миграции, заполнение базы, Caddy получает сертификат:
+
+   ```bash
+   ./infra/deploy.sh
+   ```
+
+6. Ночной бэкап: `crontab -e` и строка
+
+   ```bash
+   0 3 * * * /opt/p400/infra/deploy.sh backup
+   ```
+
+## Обслуживание
+
+```bash
+infra/deploy.sh              # обновление: git pull, сборка, перезапуск (первый запуск — та же команда)
+infra/deploy.sh reset-demo   # перед каждым показом: полное перезаполнение, стирает прохождения посетителей
+infra/deploy.sh backup       # pg_dump в infra/backups/, хранится 7 дней
+```
+
+`deploy.sh` без swap на сервере сам добавляет 2 GB `/swapfile`: сборке Next.js может не хватить 4 GB памяти.
+
+При DDoS-атаке: включить в Cloudflare проксирование (оранжевое облако) для `mt-hackathon` и
+выставить SSL/TLS в режим Full (strict).
