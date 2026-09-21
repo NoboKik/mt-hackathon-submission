@@ -6,12 +6,33 @@
 
 import { randomBytes, randomUUID } from 'node:crypto'
 import { basename } from 'node:path'
-import { COMPETENCIES, type Competency, type Outcome, type Scenario, score } from '@p400/shared'
+import {
+  type AchievementCode,
+  COMPETENCIES,
+  COOL_HEAD_RUNS,
+  type Competency,
+  HIGH_METER,
+  HONOUR_STUDENT_SCORE,
+  NIGHT_SHIFT_RUNS,
+  NIGHT_SHIFT_WINDOW_MS,
+  type Outcome,
+  type Scenario,
+  STEADY_DAYS,
+  score,
+} from '@p400/shared'
 import { requireScenarios } from '@p400/shared/content'
 import { sql } from 'drizzle-orm'
 import { hashPassword } from '@/lib/auth'
 import { db } from './index'
-import { type NewGameSession, type NewUser, scenarios, sessions, users } from './schema'
+import {
+  type NewGameSession,
+  type NewUser,
+  type NewUserAchievement,
+  scenarios,
+  sessions,
+  userAchievements,
+  users,
+} from './schema'
 
 // A fixed seed, so every machine generates the same demo data.
 const SEED = 20260927
@@ -95,7 +116,10 @@ const DEMO = {
 const SEEDED_TIMER_SEC = 15
 const DAY_MS = 86_400_000
 
-function playedSession(rnd: Rnd, userId: string, scenario: Scenario, now: number): NewGameSession {
+/** The timeout count is not a column, but `cool-head` is the one badge that needs it. */
+type Played = { row: NewGameSession; timeouts: number }
+
+function playedSession(rnd: Rnd, userId: string, scenario: Scenario, now: number): Played {
   const outcome = weighted(rnd, OUTCOMES)
   const decisions = Array.from({ length: int(rnd, 3, 5) }, () => {
     const full = SEEDED_TIMER_SEC * 1000
@@ -111,7 +135,7 @@ function playedSession(rnd: Rnd, userId: string, scenario: Scenario, now: number
   const startedAt = new Date(now - Math.round(rnd() * 21 * DAY_MS))
   const played = scenario.estimatedMinutes * 60_000 + int(rnd, 5, 120) * 1000
   const [lo, hi] = FINAL_METERS[outcome]
-  return {
+  const row: NewGameSession = {
     userId,
     scenarioId: scenario.id,
     // NOTE: reserved for reproducible demo replays; nothing reads it yet.
@@ -129,6 +153,7 @@ function playedSession(rnd: Rnd, userId: string, scenario: Scenario, now: number
     // Seeded history has no replayable path: a debrief needs a real playthrough.
     path: [],
   }
+  return { row, timeouts: decisions.filter((d) => d.timedOut).length }
 }
 
 /** What the leaderboard will show: the best score per scenario, summed. */
@@ -136,6 +161,71 @@ const leaderboardTotal = (rows: NewGameSession[]) => {
   const best = new Map<string, number>()
   for (const r of rows) best.set(r.scenarioId, Math.max(best.get(r.scenarioId) ?? 0, r.score ?? 0))
   return [...best.values()].reduce((a, b) => a + b, 0)
+}
+
+/**
+ * The badges seeded history honestly supports, per user. The thresholds come from
+ * packages/shared/src/achievements.ts so the numbers stay in one place; only the evidence
+ * differs, because a seeded session has `path: []` and the real evaluator reads choice ids.
+ *
+ * `first-aid` and `flawless` are deliberately never granted here. Both need a real path — the
+ * seed cannot tell a clean medical run from a lucky one — and both are exactly what the demo
+ * user unlocks in one five-minute medical playthrough. `night-shift` is evaluated
+ * but effectively never fires: seeded runs are spread over 21 days.
+ *
+ * Derived from already-generated rows with zero new rnd() draws. Anything that consumes the
+ * PRNG must be appended at the end of generateSeedData, or every downstream user, session and
+ * score reshuffles and both the determinism test and the demo ranking break.
+ */
+function seededUnlocks(
+  played: Played[],
+  categoryOf: Map<string, string>,
+  scenarioCount: number,
+): NewUserAchievement[] {
+  const byUser = new Map<string, Played[]>()
+  for (const p of played) {
+    const runs = byUser.get(p.row.userId) ?? []
+    runs.push(p)
+    byUser.set(p.row.userId, runs)
+  }
+
+  const unlocks: NewUserAchievement[] = []
+  for (const [userId, runs] of byUser) {
+    const rows = runs.map((p) => p.row)
+    const times = rows.map((r) => Number(r.finishedAt ?? 0))
+    const scenariosPlayed = new Set(rows.map((r) => r.scenarioId))
+    const conditions: [AchievementCode, boolean][] = [
+      ['first-run', rows.length >= 1],
+      ['cool-head', runs.filter((p) => p.timeouts === 0).length >= COOL_HEAD_RUNS],
+      [
+        'diplomat',
+        rows.some(
+          (r) =>
+            categoryOf.get(r.scenarioId) === 'conflict' &&
+            r.outcome === 'success' &&
+            r.loyalty >= HIGH_METER &&
+            r.safety >= HIGH_METER,
+        ),
+      ],
+      [
+        'night-shift',
+        times.some(
+          (from) =>
+            times.filter((t) => t >= from && t - from <= NIGHT_SHIFT_WINDOW_MS).length >=
+            NIGHT_SHIFT_RUNS,
+        ),
+      ],
+      [
+        'balance',
+        rows.some((r) => r.outcome !== 'fail' && r.loyalty >= HIGH_METER && r.safety >= HIGH_METER),
+      ],
+      ['steady', new Set(times.map((t) => Math.floor(t / DAY_MS))).size >= STEADY_DAYS],
+      ['full-route', scenarioCount > 0 && scenariosPlayed.size >= scenarioCount],
+      ['honour-student', rows.some((r) => (r.score ?? 0) >= HONOUR_STUDENT_SCORE)],
+    ]
+    for (const [code, earned] of conditions) if (earned) unlocks.push({ userId, code })
+  }
+  return unlocks
 }
 
 /** Everything that isn't a DB write, so seed.test.ts can check it without Postgres. */
@@ -162,29 +252,36 @@ export function generateSeedData(list: Scenario[], passwordHash: string, now = D
     })
   }
 
-  const rows: NewGameSession[] = []
+  const played: Played[] = []
   for (const user of crew) {
     for (let n = int(rnd, 0, 8); n > 0 && list.length; n--) {
-      rows.push(playedSession(rnd, user.id, pick(rnd, list), now))
+      played.push(playedSession(rnd, user.id, pick(rnd, list), now))
     }
   }
+  const rows = played.map((p) => p.row)
 
   // The demo user sits mid-table, so Анна visibly climbs after a live run.
   // NOTE: generate a handful of deterministic histories and keep the one closest to the
   // median total. Shorter than solving score() backwards, and "mid-table" is all the demo needs.
   const totals = crew.map((u) => leaderboardTotal(rows.filter((r) => r.userId === u.id)))
   const median = totals.sort((a, b) => a - b)[Math.floor(totals.length / 2)]
-  let demoRows: NewGameSession[] = []
+  let demoPlayed: Played[] = []
   for (let i = 0; i < 16 && list.length; i++) {
     const candidate = Array.from({ length: int(rnd, 2, 3) }, () =>
       playedSession(rnd, demo.id, pick(rnd, list), now),
     )
-    const off = Math.abs(leaderboardTotal(candidate) - median)
-    if (!demoRows.length || off < Math.abs(leaderboardTotal(demoRows) - median))
-      demoRows = candidate
+    const total = (c: Played[]) => leaderboardTotal(c.map((p) => p.row))
+    const off = Math.abs(total(candidate) - median)
+    if (!demoPlayed.length || off < Math.abs(total(demoPlayed) - median)) demoPlayed = candidate
   }
 
-  return { users: [demo, ...crew], sessions: [...rows, ...demoRows] }
+  const everyone = [...played, ...demoPlayed]
+  const categoryOf = new Map(list.map((s) => [s.id, s.category as string]))
+  return {
+    users: [demo, ...crew],
+    sessions: everyone.map((p) => p.row),
+    unlocks: seededUnlocks(everyone, categoryOf, list.length),
+  }
 }
 
 async function main() {
@@ -212,10 +309,15 @@ async function main() {
     }
     await tx.insert(users).values(data.users)
     if (data.sessions.length) await tx.insert(sessions).values(data.sessions)
+    // user_achievements has no delete above: it cascades with users, which are deleted here.
+    if (data.unlocks.length)
+      await tx.insert(userAchievements).values(data.unlocks).onConflictDoNothing()
   })
 
-  const { users: u, sessions: s } = data
-  console.log(`seed: ${list.length} scenarios, ${u.length} users, ${s.length} sessions`)
+  const { users: u, sessions: s, unlocks } = data
+  console.log(
+    `seed: ${list.length} scenarios, ${u.length} users, ${s.length} sessions, ${unlocks.length} badges`,
+  )
   // postgres-js keeps its pool open, so the process would otherwise hang here.
   process.exit(0)
 }

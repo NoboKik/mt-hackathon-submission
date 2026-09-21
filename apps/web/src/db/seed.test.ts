@@ -1,10 +1,12 @@
-import type { Scenario } from '@p400/shared'
+import { ACHIEVEMENT_CODES, type Competency, type Scenario } from '@p400/shared'
 import { expect, test } from 'vitest'
 import { generateSeedData } from './seed'
 
-// generateSeedData only reads id, start and estimatedMinutes off a scenario.
-const stub = (id: string) => ({ id, start: 'n1', estimatedMinutes: 5 }) as unknown as Scenario
-const LIST = [stub('medical-faint-01'), stub('conflict-drunk-01')]
+// generateSeedData only reads id, category, start and estimatedMinutes off a scenario. `category`
+// is load-bearing: without it the `diplomat` rule can never fire, in the seed or in this file.
+const stub = (id: string, category: Competency) =>
+  ({ id, category, start: 'n1', estimatedMinutes: 5 }) as unknown as Scenario
+const LIST = [stub('medical-faint-01', 'medical'), stub('conflict-drunk-01', 'conflict')]
 const NOW = Date.UTC(2026, 8, 27)
 const run = () => generateSeedData(LIST, 'scrypt$c2FsdA==$aGFzaA==', NOW)
 
@@ -12,6 +14,7 @@ const run = () => generateSeedData(LIST, 'scrypt$c2FsdA==$aGFzaA==', NOW)
 const stable = (d: ReturnType<typeof run>) => ({
   users: d.users.map(({ id, ...u }) => u),
   sessions: d.sessions.map(({ userId, ...s }) => s),
+  unlocks: d.unlocks.map(({ userId, ...u }) => u),
 })
 
 test('two runs generate the same crew, sessions and scores', () => {
@@ -60,4 +63,31 @@ test('no scenario files still seeds the crew', () => {
   const empty = generateSeedData([], 'scrypt$c2FsdA==$aGFzaA==', NOW)
   expect(empty.users).toHaveLength(31)
   expect(empty.sessions).toEqual([])
+  expect(empty.unlocks).toEqual([])
+})
+
+test('every unlock names a known code and a user that exists', () => {
+  const { users, unlocks } = run()
+  const ids = new Set(users.map((u) => u.id))
+  expect(unlocks.length).toBeGreaterThan(0)
+  for (const u of unlocks) {
+    expect(ACHIEVEMENT_CODES).toContain(u.code)
+    expect(ids.has(u.userId)).toBe(true)
+  }
+  // One row per (user, code): the composite primary key would reject a duplicate anyway.
+  const keys = unlocks.map((u) => `${u.userId}|${u.code}`)
+  expect(new Set(keys).size).toBe(keys.length)
+})
+
+// A demo needs badges left to win. first-aid and flawless are never seeded, so a clean
+// medical run always unlocks at least two fresh ones.
+test('the demo user keeps at least two badges locked', () => {
+  const { users, unlocks } = run()
+  const demo = users[0]
+  expect(demo.email).toBe('demo@provodnik400.ru')
+  const earned = new Set(unlocks.filter((u) => u.userId === demo.id).map((u) => u.code))
+  const locked = ACHIEVEMENT_CODES.filter((code) => !earned.has(code))
+  expect(locked.length).toBeGreaterThanOrEqual(2)
+  expect(locked).toContain('first-aid')
+  expect(locked).toContain('flawless')
 })
