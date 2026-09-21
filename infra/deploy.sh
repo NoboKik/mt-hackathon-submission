@@ -14,7 +14,7 @@ env_val() { grep -E "^$1=" infra/.env | tail -n 1 | cut -d= -f2- || true; }
 
 deploy() {
   [ -f infra/.env ] || { echo 'infra/.env is missing: cp infra/.env.example infra/.env and fill it in' >&2; exit 1; }
-  for v in AUTH_SECRET POSTGRES_PASSWORD SITE_ADDRESS; do
+  for v in POSTGRES_PASSWORD SITE_ADDRESS; do
     [ -n "$(env_val "$v")" ] || { echo "infra/.env: $v is empty" >&2; exit 1; }
   done
 

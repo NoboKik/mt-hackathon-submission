@@ -9,7 +9,6 @@ dist/
 # env
 .env
 .env.local
-.env.bak
 .env*.local
 
 # test / tooling

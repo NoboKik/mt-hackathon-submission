@@ -1,8 +1,8 @@
 # cd infra && docker compose up --build   (or from the repo root: docker compose -f infra/docker-compose.yml up --build)
 # Every variable below comes from infra/.env — see infra/.env.example. With no .env at all the
 # stack still runs locally on http://localhost with dev credentials and an open demo login.
-# AUTH_SECRET empty: the web service refuses to sign sessions in production, but an empty value
-# must not break `compose up -d postgres` for local development.
+# AUTH_SECRET may stay empty: migrate writes a random key to the `secrets` volume on the first
+# boot and web signs sessions with it. `down -v` deletes it, which just logs everyone out.
 name: provodnik-400
 
 services:
@@ -34,7 +34,14 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-provodnik}:${POSTGRES_PASSWORD:-provodnik}@postgres:5432/${POSTGRES_DB:-provodnik}
       SEED_IF_EMPTY: '1'
       SEED_DEMO: ${SEED_DEMO:-1}
-    command: ['sh', '-c', 'pnpm db:migrate && pnpm db:seed']
+    volumes:
+      - secrets:/secrets
+    command:
+      - sh
+      - -c
+      - >-
+        { [ -s /secrets/auth_secret ] || node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))" > /secrets/auth_secret; }
+        && pnpm db:migrate && pnpm db:seed
     depends_on:
       postgres:
         condition: service_healthy
@@ -48,6 +55,7 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-provodnik}:${POSTGRES_PASSWORD:-provodnik}@postgres:5432/${POSTGRES_DB:-provodnik}
       AUTH_SECRET: ${AUTH_SECRET:-}
+      AUTH_SECRET_FILE: /secrets/auth_secret
       # Auto mode's generator (any OpenAI-compatible endpoint). Empty: the app runs, /api/auto says so.
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
@@ -61,6 +69,8 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    volumes:
+      - secrets:/secrets:ro
     expose:
       - '3000'
     healthcheck:
@@ -89,5 +99,6 @@ services:
 
 volumes:
   pgdata:
+  secrets: # auth_secret, written once by migrate
   caddy_data:
   caddy_config:

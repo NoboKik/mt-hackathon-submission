@@ -2,6 +2,7 @@
 // NOTE: `server-only` isn't installed, so this comment is the guard. Install the package
 // if a client component ever imports this file by accident.
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { cookies } from 'next/headers'
 
 const COOKIE = 'p400_session'
@@ -14,12 +15,25 @@ const KEYLEN = 64
 const DEV_SECRET = 'provodnik-400-dev-secret'
 
 // Read lazily: module top level also runs during `next build`, which has no env.
+// AUTH_SECRET wins; otherwise AUTH_SECRET_FILE, which docker compose's migrate service fills
+// with a random key on the first boot (the `secrets` volume), so nobody has to make one up.
+// NOTE: re-reads the file on every signed request — a few µs; cache it if that ever shows.
 function secret() {
-  const s = process.env.AUTH_SECRET
+  const s = process.env.AUTH_SECRET || fileSecret()
   if (s) return s
   if (process.env.NODE_ENV === 'production')
-    throw new Error('AUTH_SECRET is not set. Generate one with `openssl rand -hex 32`.')
+    throw new Error('Neither AUTH_SECRET nor a readable AUTH_SECRET_FILE is set.')
   return DEV_SECRET
+}
+
+function fileSecret() {
+  const path = process.env.AUTH_SECRET_FILE
+  if (!path) return ''
+  try {
+    return readFileSync(path, 'utf8').trim()
+  } catch {
+    return ''
+  }
 }
 
 // NOTE: the sync scrypt blocks the event loop for ~100 ms per login; switch to the callback

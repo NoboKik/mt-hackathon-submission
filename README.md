@@ -22,22 +22,21 @@ https://mt-hackathon.nobokik.dev/login?invite=<код-приглашения>
 git clone https://github.com/NoboKik/mt-hackathon.git
 cd mt-hackathon
 cp infra/.env.example infra/.env
-sed -i.bak "s/^AUTH_SECRET=.*/AUTH_SECRET=$(openssl rand -hex 32)/" infra/.env
 docker compose -f infra/docker-compose.yml up --build
 ```
 
 Затем откройте `http://localhost`.
 
-- `AUTH_SECRET` обязателен: контейнер `web` работает с `NODE_ENV=production` и без ключа не
-  подписывает сессии.
 - При каждом запуске сервис `migrate` применяет миграции и обновляет сценарии из
   `content/scenarios`; демо-данные он добавляет только в пустую базу.
 - С пустым `DEMO_INVITE` демо-вход открыт без кода.
 
 Все переменные окружения с пояснениями — в `infra/.env.example`. Главные:
 
-- `AUTH_SECRET`, `POSTGRES_PASSWORD`, `SITE_ADDRESS` — обязательны на сервере, без них
-  `infra/deploy.sh` не запустится;
+- `POSTGRES_PASSWORD`, `SITE_ADDRESS` — обязательны на сервере, без них `infra/deploy.sh` не
+  запустится;
+- `AUTH_SECRET` — можно не задавать: ключ подписи сессий генерируется при первом запуске и
+  хранится в томе `secrets`;
 - `SEED_DEMO` — `1`: при первом запуске добавить демо-проводника и 30 коллег для рейтинга;
   `0`: чистая установка без демо-данных;
 - `DEMO_INVITE` — код приглашения для демо-входа (пусто — вход открыт);
@@ -120,7 +119,7 @@ pnpm user:add           # создать учётную запись или сб
    cd /opt/p400
    ```
 
-4. Создать и заполнить `infra/.env` (как минимум `AUTH_SECRET`, `POSTGRES_PASSWORD`,
+4. Создать и заполнить `infra/.env` (как минимум `POSTGRES_PASSWORD`,
    `SITE_ADDRESS=mt-hackathon.nobokik.dev`, `DEMO_INVITE`):
 
    ```bash

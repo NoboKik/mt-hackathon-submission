@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { hashPassword, inviteOk, sign, verify, verifyPassword } from './auth'
 
@@ -98,5 +101,25 @@ describe('demo invite', () => {
 
   it('rejects a different length without throwing', () => {
     withInvite('a1b2c3d4e5f60718', () => expect(inviteOk('a1b2')).toBe(false))
+  })
+})
+
+describe('secret from AUTH_SECRET_FILE', () => {
+  it('signs with the file when AUTH_SECRET is empty, and AUTH_SECRET still wins', () => {
+    const file = join(mkdtempSync(join(tmpdir(), 'p400-')), 'auth_secret')
+    writeFileSync(file, 'file-secret-9c41\n')
+    const envSecret = process.env.AUTH_SECRET
+    try {
+      process.env.AUTH_SECRET = ''
+      process.env.AUTH_SECRET_FILE = file
+      const token = sign(USER, NOW + 60)
+      expect(verify(token, NOW)).toBe(USER)
+      // A different key must reject the file-signed token.
+      process.env.AUTH_SECRET = envSecret
+      expect(verify(token, NOW)).toBeNull()
+    } finally {
+      process.env.AUTH_SECRET = envSecret
+      delete process.env.AUTH_SECRET_FILE
+    }
   })
 })
