@@ -45,12 +45,22 @@ function ScenarioCard({ scenario }: { scenario: ScenarioListItem }) {
         )}
       </dl>
 
-      <Link
-        href={`/play/${scenario.id}`}
-        className="bg-brand hover:bg-brand-hover focus-visible:ring-ring rounded-card self-start px-4 py-2 text-sm font-semibold text-white transition-colors focus-visible:ring-2 focus-visible:outline-none"
-      >
-        {played ? ru.home.replay : ru.home.start}
-      </Link>
+      <div className="flex flex-wrap items-center gap-4">
+        <Link
+          href={`/play/${scenario.id}`}
+          className="bg-brand hover:bg-brand-hover focus-visible:ring-ring rounded-card px-4 py-2 text-sm font-semibold text-white transition-colors focus-visible:ring-2 focus-visible:outline-none"
+        >
+          {played ? ru.home.replay : ru.home.start}
+        </Link>
+        {/* The methodologist's view. Reachable from the catalogue so a trainer goes straight
+            from a scenario to how it branches. */}
+        <Link
+          href={`/admin/${scenario.id}`}
+          className="text-muted-foreground hover:text-brand-text focus-visible:ring-ring rounded-sm text-xs underline underline-offset-4 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+        >
+          {ru.home.graph}
+        </Link>
+      </div>
     </li>
   )
 }
