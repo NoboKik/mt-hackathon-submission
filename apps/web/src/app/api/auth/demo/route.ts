@@ -24,7 +24,8 @@ export async function POST(req: Request) {
     return fail(403, ru.errors.demoInviteRequired)
 
   const user = await userByEmail(DEMO_EMAIL)
-  if (!user) return fail(500, ru.errors.demoUserMissing)
+  // SEED_DEMO=0, or a dev database that was migrated but never seeded.
+  if (!user) return fail(404, ru.errors.demoUserMissing)
 
   await setSessionCookie(user.id)
   if (given && inviteOk(given))

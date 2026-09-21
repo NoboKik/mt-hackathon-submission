@@ -23,7 +23,8 @@ services:
       timeout: 5s
       retries: 10
 
-  # One-shot: migrations, then the first seed. SEED_IF_EMPTY keeps restarts from wiping real data.
+  # One-shot on every boot: migrations, then the seed — curated scenarios always; the demo people
+  # only into an empty users table (SEED_IF_EMPTY), and never with SEED_DEMO=0.
   migrate:
     build:
       context: ..
@@ -32,6 +33,7 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-provodnik}:${POSTGRES_PASSWORD:-provodnik}@postgres:5432/${POSTGRES_DB:-provodnik}
       SEED_IF_EMPTY: '1'
+      SEED_DEMO: ${SEED_DEMO:-1}
     command: ['sh', '-c', 'pnpm db:migrate && pnpm db:seed']
     depends_on:
       postgres:

@@ -285,25 +285,30 @@ export function generateSeedData(list: Scenario[], passwordHash: string, now = D
 }
 
 async function main() {
-  // Boot-time seeding (docker compose) must never wipe a live database: the transaction below
-  // deletes every user and session.
-  if (process.env.SEED_IF_EMPTY === '1') {
-    const [{ n }] = await db().select({ n: sql<number>`count(*)::int` }).from(users)
-    if (n > 0) {
-      console.log(`seed: skipped, ${n} users already present`)
-      process.exit(0) // postgres-js keeps its pool open, see below
-    }
-  }
   // Throws on an empty folder or an invalid file: seeding zero scenarios is the bug, not a state.
   const list = requireScenarios()
+
+  // Two switches, both set by docker compose's migrate service:
+  // - SEED_DEMO=0 (a customer install): no demo user, no invented colleagues, ever. Real
+  //   accounts come from `pnpm user:add`.
+  // - SEED_IF_EMPTY=1 (every boot): the people below are replaced only on an empty `users`
+  //   table, because that step deletes every user and session.
+  // Curated scenarios sync on every run either way, so a deploy ships content changes.
+  let people = process.env.SEED_DEMO !== '0'
+  if (people && process.env.SEED_IF_EMPTY === '1') {
+    const [{ n }] = await db().select({ n: sql<number>`count(*)::int` }).from(users)
+    if (n > 0) {
+      console.log(`seed: demo people skipped, ${n} users already present`)
+      people = false
+    }
+  }
   // One throwaway password for every seeded account: nobody signs in with a password. The demo
   // user gets in through POST /api/auth/demo, the other 30 are leaderboard colleagues.
-  const hash = hashPassword(randomBytes(24).toString('base64url'))
-  const data = generateSeedData(list, hash)
+  const data = people
+    ? generateSeedData(list, hashPassword(randomBytes(24).toString('base64url')))
+    : null
 
   await db().transaction(async (tx) => {
-    await tx.delete(sessions)
-    await tx.delete(users)
     for (const s of list) {
       const row = {
         title: s.title,
@@ -322,6 +327,9 @@ async function main() {
           setWhere: sql`${scenarios.json} is distinct from excluded."json"`,
         })
     }
+    if (!data) return
+    await tx.delete(sessions)
+    await tx.delete(users)
     await tx.insert(users).values(data.users)
     if (data.sessions.length) await tx.insert(sessions).values(data.sessions)
     // user_achievements has no delete above: it cascades with users, which are deleted here.
@@ -329,9 +337,10 @@ async function main() {
       await tx.insert(userAchievements).values(data.unlocks).onConflictDoNothing()
   })
 
-  const { users: u, sessions: s, unlocks } = data
   console.log(
-    `seed: ${list.length} scenarios, ${u.length} users, ${s.length} sessions, ${unlocks.length} badges`,
+    data
+      ? `seed: ${list.length} scenarios, ${data.users.length} users, ${data.sessions.length} sessions, ${data.unlocks.length} badges`
+      : `seed: ${list.length} scenarios`,
   )
   // postgres-js keeps its pool open, so the process would otherwise hang here.
   process.exit(0)
