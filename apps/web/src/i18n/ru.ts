@@ -82,6 +82,10 @@ export const ru = {
       description: 'Не менее 115 очков за один сценарий.',
     },
   } satisfies Record<AchievementCode, { title: string; description: string }>,
+  // The methodologist's scenario graph.
+  admin: {
+    timeoutEdge: 'Таймаут',
+  },
   // API error bodies. The UI shows these, so they are copy, not log lines.
   errors: {
     unauthorized: 'Войдите в систему, чтобы продолжить.',

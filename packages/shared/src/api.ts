@@ -3,6 +3,7 @@
 
 import { z } from 'zod'
 import type { ClientNode, MeterKey, Meters } from './engine'
+import type { ScenarioGraph } from './graph'
 import type { Competency, Outcome } from './schema'
 import type { score } from './score'
 
@@ -23,6 +24,12 @@ export type ChooseBody = z.infer<typeof ChooseBody>
 
 export const LoginBody = z.object({ email: z.email(), password: z.string().min(1) })
 export type LoginBody = z.infer<typeof LoginBody>
+
+/**
+ * GET /admin/scenarios/:id/graph. The whole branch graph with effects and competencies on it —
+ * a trainer's view, deliberately not player-safe the way ClientNode is.
+ */
+export type AdminGraphResponse = ScenarioGraph
 
 export type LeaderboardPeriod = 'week' | 'all'
 
