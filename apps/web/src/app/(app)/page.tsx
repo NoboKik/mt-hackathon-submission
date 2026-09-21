@@ -12,10 +12,10 @@ import { ApiError, api } from '@/lib/client'
 import { cn } from '@/lib/utils'
 
 /**
- * The catalogue: the front door, and the first screen after sign-in. One column on a phone,
- * two from sm. The skeleton shares the grid class so nothing jumps when the data lands.
+ * The catalogue: the front door, and the first screen after sign-in. One column at every
+ * width. The skeleton shares the class so nothing jumps when the data lands.
  */
-const GRID = 'grid gap-4 sm:grid-cols-2'
+const GRID = 'flex flex-col gap-4'
 
 function ScenarioCard({ scenario }: { scenario: ScenarioListItem }) {
   const played = scenario.bestScore !== null
@@ -27,9 +27,9 @@ function ScenarioCard({ scenario }: { scenario: ScenarioListItem }) {
     <li
       className={cn(
         surface({ interactive: true, pad: 'lg' }),
-        // The lift comes from `interactive`; focus-within repeats it for keyboard users,
+        // `interactive` handles hover; focus-within repeats it for keyboard users,
         // while the ring itself stays on the control that actually has focus.
-        'flex flex-col gap-5 focus-within:border-brand/40 focus-within:shadow-lift',
+        'flex flex-col gap-5 focus-within:border-brand/50',
       )}
     >
       <div className="flex flex-col gap-2">
@@ -116,8 +116,8 @@ export default function HomePage() {
   }, [scenarios.error, router])
 
   return (
-    <div className="flex flex-col gap-8 sm:gap-10">
-      <header className="flex flex-col gap-3">
+    <div className="flex flex-col gap-6">
+      <header className="flex flex-col gap-2">
         <Eyebrow>{ru.app.tagline}</Eyebrow>
         <h1 className="text-display sm:text-display-lg text-balance">{ru.home.catalogue}</h1>
         <p className="max-w-prose text-balance text-muted-foreground sm:text-lead">

@@ -24,7 +24,9 @@ const cardClass = cva('rounded-card border border-border bg-card', {
       float: 'shadow-float backdrop-blur-xl',
     },
     interactive: {
-      true: 'transition-[box-shadow,transform,border-color] duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-lift',
+      // Colour only — nothing that changes geometry. A hover lift moved every card and every
+      // choice button 2px under the cursor, which read as the layout twitching.
+      true: 'transition-colors duration-150 hover:border-brand/50 hover:bg-accent/40',
       false: '',
     },
     pad: { none: '', sm: 'p-4', md: 'p-5', lg: 'p-5 sm:p-6' },
@@ -48,8 +50,7 @@ export const buttonClass = cva(
   {
     variants: {
       variant: {
-        primary:
-          'bg-brand text-primary-foreground shadow-card hover:bg-brand-hover active:translate-y-px',
+        primary: 'bg-brand text-primary-foreground hover:bg-brand-hover',
         outline:
           'border border-brand/50 bg-card text-brand-text hover:border-brand hover:bg-accent',
         ghost: 'text-muted-foreground hover:bg-muted hover:text-foreground',

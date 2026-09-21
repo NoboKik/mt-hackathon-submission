@@ -8,7 +8,7 @@ import type {
   StartSessionResponse,
 } from '@p400/shared'
 import { useMutation } from '@tanstack/react-query'
-import { Award, X } from 'lucide-react'
+import { Award } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { MeterPair } from '@/components/meters'
@@ -42,7 +42,7 @@ type Run = {
  * top padding clears the floating HUD, which is ~102px tall at 375px (two stacked meters)
  * and ~100px from `sm` up (one meter row, but the countdown ring sets the height).
  */
-const page = 'mx-auto w-full max-w-3xl px-4 pt-32 pb-16'
+const page = 'w-full'
 
 /**
  * Whole seconds left, floored at 0. Derived at render from the deadline rather than held in
@@ -198,29 +198,10 @@ export function Player({ scenarioId }: { scenarioId: string }) {
 
   return (
     <>
-      {/* The floating HUD. It is the only chrome during a run: two meters, the countdown and
-          the way out, parked above a situation that may scroll. */}
-      <div className="fixed inset-x-3 top-3 z-30 mx-auto flex max-w-3xl items-center gap-3 rounded-slab border border-border bg-card/85 px-4 py-3 shadow-float backdrop-blur-xl">
-        <div className="min-w-0 flex-1">
-          <MeterPair meters={run.meters} deltas={run.deltas} variant="hud" />
-        </div>
-        {/* The slot is held open for the whole choice node so the meters beside it do not
-            re-flow mid-answer. The ring itself is dropped while a choice is in flight: with
-            no deadline the derived value is 0, and a ring that snapped to a red zero on every
-            answer read as a failure the player had not made. */}
-        {node.type === 'choice' && (
-          <div className="flex size-14 shrink-0 items-center justify-center sm:size-16">
-            {!pending && <Countdown left={left} total={node.timerSec} />}
-          </div>
-        )}
-        <Link
-          href="/"
-          aria-label={ru.nav.exitPlay}
-          title={ru.nav.exitPlay}
-          className={buttonClass({ variant: 'ghost', size: 'icon' })}
-        >
-          <X className="size-5" aria-hidden="true" />
-        </Link>
+      {/* The meters sit in the page and stick under the header, as they did before the
+          floating-HUD experiment. top-14 is the header's height. */}
+      <div className="border-border bg-card rounded-card shadow-card sticky top-14 z-10 border p-4">
+        <MeterPair meters={run.meters} deltas={run.deltas} />
       </div>
 
       <div key={node.id} className={cn(page, 'flex flex-col gap-5')}>
@@ -243,24 +224,26 @@ export function Player({ scenarioId }: { scenarioId: string }) {
 
         {node.type === 'choice' && (
           <section className="flex flex-col gap-5">
-            <Card pad="lg" className="flex flex-col gap-2">
-              <Eyebrow>{node.speaker}</Eyebrow>
-              <p className="text-lead text-balance sm:text-lead-lg">{node.text}</p>
+            <Card pad="lg" className="flex items-start justify-between gap-4">
+              <div className="flex min-w-0 flex-col gap-2">
+                <Eyebrow>{node.speaker}</Eyebrow>
+                <p className="text-lead text-balance sm:text-lead-lg">{node.text}</p>
+              </div>
+              {/* The slot is held open for the whole node so the text beside it does not
+                  re-flow mid-answer. The ring itself is dropped while a choice is in flight:
+                  with no deadline the derived value is 0, and a ring that snapped to a red
+                  zero on every answer read as a failure the player had not made. */}
+              <div className="flex size-14 shrink-0 items-center justify-center sm:size-16">
+                {!pending && <Countdown left={left} total={node.timerSec} />}
+              </div>
             </Card>
             <ul className="flex flex-col gap-3">
-              {node.choices.map((choice, i) => (
+              {node.choices.map((choice) => (
                 <li key={choice.id}>
                   <button
                     type="button"
                     disabled={pending}
                     onClick={() => submit(choice.id)}
-                    // The stagger is CSS only (tw-animate-css); `backwards` holds each card
-                    // back through its own delay instead of flashing in at full opacity.
-                    style={{
-                      animationDelay: `${i * 60}ms`,
-                      animationDuration: '260ms',
-                      animationFillMode: 'backwards',
-                    }}
                     className={cn(
                       surface({ interactive: true, pad: 'sm' }),
                       'relative flex min-h-16 w-full items-center overflow-hidden text-left text-base leading-snug',
@@ -270,13 +253,6 @@ export function Player({ scenarioId }: { scenarioId: string }) {
                       'hover:before:opacity-100 focus-visible:before:opacity-100',
                       'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none',
                       'disabled:pointer-events-none disabled:opacity-50',
-                      // Slide only, deliberately no fade-in. `fade-in` sets --tw-enter-opacity:0
-                      // and animate-in fills backwards, so until the animation actually RUNS the
-                      // element sits at opacity 0 — and a hidden or throttled tab never advances
-                      // it (verified: playState "running", currentTime stuck at 0). That would
-                      // leave the only interactive element of the core screen invisible. A
-                      // stalled slide merely leaves the card 8px low, which nobody notices.
-                      'animate-in slide-in-from-bottom-2',
                     )}
                   >
                     {choice.text}
@@ -288,10 +264,7 @@ export function Player({ scenarioId }: { scenarioId: string }) {
         )}
 
         {node.type === 'end' && (
-          <Card
-            pad="lg"
-            className="flex flex-col items-center gap-5 text-center animate-in slide-in-from-bottom-2"
-          >
+          <Card pad="lg" className="flex flex-col items-center gap-5 text-center">
             <Chip tone={OUTCOME_TONE[node.outcome]} className="tracking-eyebrow uppercase">
               {ru.outcomes[node.outcome]}
             </Chip>

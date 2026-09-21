@@ -23,7 +23,7 @@ function Wordmark({ className, onClick }: { className?: string; onClick?: () => 
       href="/"
       onClick={onClick}
       className={cn(
-        'focus-visible:ring-ring flex items-center gap-2 rounded-card focus-visible:ring-2 focus-visible:outline-none',
+        'focus-visible:ring-ring rounded-card flex items-center gap-2 focus-visible:ring-2 focus-visible:outline-none',
         className,
       )}
     >
@@ -46,8 +46,6 @@ export function AppHeader() {
   // layer it keeps rendering at display:block regardless — measured, not assumed — so a
   // phone rotated from portrait to landscape (812px wide, past the 640px breakpoint) would
   // sit under a full-screen menu covering the desktop layout it just switched to.
-  // The stale state is verified; this listener is not, because CDP viewport emulation
-  // changes the metrics without dispatching resize or matchMedia change events.
   useEffect(() => {
     const desktop = window.matchMedia('(min-width: 40rem)')
     const close = () => {
@@ -60,29 +58,26 @@ export function AppHeader() {
 
   return (
     <>
-      {/*
-        Floating rather than full-bleed. transport.mos.ru's own header is a solid red bar, so
-        this is a deliberate departure — but it is the one that makes a 375px screen work:
-        the bar keeps its own margins, the content scrolls under a blurred surface, and the
-        pill shape reads as chrome rather than as part of the page.
-      */}
-      <header className="pointer-events-none fixed inset-x-0 top-0 z-40 px-3 pt-3">
-        <div className="border-border bg-card/80 shadow-float pointer-events-auto mx-auto flex h-14 max-w-3xl items-center justify-between gap-2 rounded-full border pr-2 pl-4 backdrop-blur-xl">
+      {/* An ordinary bar: solid, full-bleed, bottom rule, no blur and no pill. A floating
+          pill reads as a detached widget once the viewport is wider than the content column,
+          which is exactly where it looked worst. */}
+      <header className="border-border bg-card sticky top-0 z-40 border-b">
+        <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-4 px-4 sm:px-6">
           <Wordmark />
 
           <div className="flex items-center gap-1">
             <nav className="hidden sm:block">
-              <ul className="flex items-center gap-1">
+              <ul className="flex items-center gap-6">
                 {LINKS.map((link) => (
                   <li key={link.href}>
                     <Link
                       href={link.href}
                       aria-current={isActive(pathname, link.href) ? 'page' : undefined}
                       className={cn(
-                        'focus-visible:ring-ring flex h-9 items-center rounded-full px-3 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none',
+                        'focus-visible:ring-ring rounded-sm text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none',
                         isActive(pathname, link.href)
-                          ? 'bg-accent text-accent-foreground font-semibold'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-muted',
+                          ? 'text-foreground font-semibold'
+                          : 'text-muted-foreground hover:text-foreground',
                       )}
                     >
                       {link.label}
@@ -92,7 +87,7 @@ export function AppHeader() {
               </ul>
             </nav>
 
-            <ThemeToggle />
+            <ThemeToggle className="sm:ml-4" />
 
             <button
               type="button"
@@ -106,12 +101,9 @@ export function AppHeader() {
         </div>
       </header>
 
-      {/*
-        A native <dialog>: focus trap, Esc to close, inert background and top-layer stacking
-        are all the platform's job here, which is why there is no Sheet component and no
-        Radix dependency. Full-bleed and sliding in from the right — the pattern
-        mt-hackathon.ru uses for its own mobile menu. Animation lives in globals.css.
-      */}
+      {/* A native <dialog>: focus trap, Esc to close, inert background and top-layer stacking
+          are all the platform's job here, which is why there is no Sheet component and no
+          Radix dependency. Phone only. Animation lives in globals.css. */}
       <dialog
         ref={drawer}
         aria-label={ru.nav.menu}
