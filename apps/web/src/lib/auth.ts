@@ -79,6 +79,10 @@ export async function setSessionCookie(userId: string) {
   })
 }
 
+export async function clearSessionCookie() {
+  ;(await cookies()).delete(COOKIE)
+}
+
 export async function currentUserId(): Promise<string | null> {
   const token = (await cookies()).get(COOKIE)?.value
   return token ? verify(token, Math.floor(Date.now() / 1000)) : null

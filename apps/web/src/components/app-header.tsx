@@ -1,11 +1,13 @@
 'use client'
 
-import { Menu, TrainFront, X } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { LogOut, Menu, TrainFront, X } from 'lucide-react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef } from 'react'
 import { ThemeToggle } from '@/components/ui'
 import { ru } from '@/i18n/ru'
+import { post } from '@/lib/client'
 import { cn } from '@/lib/utils'
 
 const LINKS = [
@@ -53,7 +55,19 @@ function isActive(pathname: string, href: string) {
 
 export function AppHeader() {
   const pathname = usePathname()
+  const router = useRouter()
+  const queryClient = useQueryClient()
   const drawer = useRef<HTMLDialogElement>(null)
+  // The header has no auth state of its own; /login is the one page you're signed out on.
+  const signedIn = pathname !== '/login'
+
+  const signOut = async () => {
+    drawer.current?.close()
+    await post('/auth/logout')
+    // The next account must not see the previous one's profile from the cache.
+    queryClient.clear()
+    router.push('/login')
+  }
 
   // Close the drawer when the viewport grows past the sm breakpoint. `sm:hidden` on the
   // <dialog> does not do this on its own: once showModal() puts the element in the top
@@ -99,6 +113,18 @@ export function AppHeader() {
             </nav>
 
             <ThemeToggle className="text-header-foreground hover:bg-header-active hover:text-header-foreground focus-visible:ring-header-foreground sm:ml-2" />
+
+            {signedIn && (
+              <button
+                type="button"
+                aria-label={ru.nav.signOut}
+                title={ru.nav.signOut}
+                onClick={signOut}
+                className="hover:bg-header-active focus-visible:ring-header-foreground hidden size-11 items-center justify-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none sm:flex"
+              >
+                <LogOut className="size-5" aria-hidden="true" />
+              </button>
+            )}
 
             <button
               type="button"
@@ -155,7 +181,23 @@ export function AppHeader() {
             </ul>
           </nav>
 
-          <div className="border-border mt-auto flex items-center justify-between border-t px-4 py-3">
+          {signedIn && (
+            <button
+              type="button"
+              onClick={signOut}
+              className="rounded-card text-foreground hover:bg-muted focus-visible:ring-ring mt-auto flex h-14 items-center gap-3 px-4 text-lg font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            >
+              <LogOut className="text-muted-foreground size-5" aria-hidden="true" />
+              {ru.nav.signOut}
+            </button>
+          )}
+
+          <div
+            className={cn(
+              'border-border flex items-center justify-between border-t px-4 py-3',
+              !signedIn && 'mt-auto',
+            )}
+          >
             <span className="text-muted-foreground text-sm">{ru.nav.theme}</span>
             <ThemeToggle />
           </div>
