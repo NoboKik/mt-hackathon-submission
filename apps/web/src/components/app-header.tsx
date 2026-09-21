@@ -17,17 +17,29 @@ const LINKS = [
 // The wordmark is typographic plus a generic glyph on purpose: the organizer's marks belong
 // to them, so the app carries its own name rather than borrowing ВСМ-400 or Moscow Transport
 // branding. The arcs in their logo are exactly the thing not to reuse.
-function Wordmark({ className, onClick }: { className?: string; onClick?: () => void }) {
+function Wordmark({
+  className,
+  onClick,
+  onHeader,
+}: {
+  className?: string
+  onClick?: () => void
+  onHeader?: boolean
+}) {
   return (
     <Link
       href="/"
       onClick={onClick}
       className={cn(
-        'focus-visible:ring-ring rounded-card flex items-center gap-2 focus-visible:ring-2 focus-visible:outline-none',
+        'rounded-card flex items-center gap-2 focus-visible:ring-2 focus-visible:outline-none',
+        onHeader ? 'focus-visible:ring-header-foreground' : 'focus-visible:ring-ring',
         className,
       )}
     >
-      <TrainFront className="text-brand-text size-5 shrink-0" aria-hidden="true" />
+      <TrainFront
+        className={cn('size-5 shrink-0', !onHeader && 'text-brand-text')}
+        aria-hidden="true"
+      />
       <span className="text-sm font-bold tracking-tight whitespace-nowrap">{ru.app.name}</span>
     </Link>
   )
@@ -58,26 +70,23 @@ export function AppHeader() {
 
   return (
     <>
-      {/* An ordinary bar: solid, full-bleed, bottom rule, no blur and no pill. A floating
-          pill reads as a detached widget once the viewport is wider than the content column,
-          which is exactly where it looked worst. */}
-      <header className="border-border bg-card sticky top-0 z-40 border-b">
+      {/* transport.mos.ru's bar: full-bleed red, white type, the active link a full-height tile
+          one shade darker. No blur, no pill, no bottom rule — the red is the edge. */}
+      <header className="bg-header text-header-foreground sticky top-0 z-40">
         <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-4 px-4 sm:px-6">
-          <Wordmark />
+          <Wordmark onHeader />
 
           <div className="flex items-center gap-1">
             <nav className="hidden sm:block">
-              <ul className="flex items-center gap-6">
+              <ul className="flex h-14 items-stretch">
                 {LINKS.map((link) => (
                   <li key={link.href}>
                     <Link
                       href={link.href}
                       aria-current={isActive(pathname, link.href) ? 'page' : undefined}
                       className={cn(
-                        'focus-visible:ring-ring rounded-sm text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none',
-                        isActive(pathname, link.href)
-                          ? 'text-foreground font-semibold'
-                          : 'text-muted-foreground hover:text-foreground',
+                        'hover:bg-header-active focus-visible:ring-header-foreground flex h-full items-center px-3 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset',
+                        isActive(pathname, link.href) && 'bg-header-active',
                       )}
                     >
                       {link.label}
@@ -87,13 +96,13 @@ export function AppHeader() {
               </ul>
             </nav>
 
-            <ThemeToggle className="sm:ml-4" />
+            <ThemeToggle className="text-header-foreground hover:bg-header-active hover:text-header-foreground focus-visible:ring-header-foreground sm:ml-2" />
 
             <button
               type="button"
               aria-label={ru.nav.menu}
               onClick={() => drawer.current?.showModal()}
-              className="text-muted-foreground hover:text-foreground focus-visible:ring-ring flex size-11 items-center justify-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none sm:hidden"
+              className="hover:bg-header-active focus-visible:ring-header-foreground flex size-11 items-center justify-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none sm:hidden"
             >
               <Menu className="size-5" aria-hidden="true" />
             </button>

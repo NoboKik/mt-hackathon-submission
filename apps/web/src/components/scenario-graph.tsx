@@ -70,11 +70,12 @@ const OUTCOME_COLOR: Record<string, string> = {
 /** The type marker dot — the same three readings the legend chips above the canvas show. */
 function nodeAccent(node: GraphNode) {
   if (node.type === 'end') return (node.outcome && OUTCOME_COLOR[node.outcome]) || 'var(--border)'
-  return node.type === 'choice' ? 'var(--brand)' : 'var(--muted-foreground)'
+  // Not --brand: the brand is red, and a red choice dot would read as a fail ending.
+  return node.type === 'choice' ? 'var(--safety)' : 'var(--muted-foreground)'
 }
 
 function nodeStroke(node: GraphNode) {
-  if (node.isStart) return 'var(--brand)'
+  if (node.isStart) return 'var(--safety)'
   if (node.type === 'end' && node.outcome) return OUTCOME_COLOR[node.outcome]
   return 'var(--border)'
 }
@@ -173,7 +174,7 @@ export function ScenarioGraph({ scenarioId }: { scenarioId: string }) {
       <Card pad="none" className="overflow-hidden">
         <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
           <Chip>
-            <Dot className="bg-brand" />
+            <Dot className="bg-safety" />
             {ru.admin.nodeTypes.choice}
           </Chip>
           <Chip>

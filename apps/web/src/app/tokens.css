@@ -3,8 +3,11 @@
  * Do not hard-code colours in components — use the Tailwind utilities generated here.
  *
  * Two themes, both measured off the organizer's own sites (2026-09-21):
- *   light  transport.mos.ru   bg #f3f5f7 · card #fff · link #0a51a1 · r8 · shadow 0 4px 10px/.05
- *   dark   mt-hackathon.ru    bg #1a1230 · surface #2c2e59 · accent #3f6fd1 · text #f5f8fd
+ *   light  transport.mos.ru, main page, measured: bg #f3f5f7 · card #fff · chip #e8ebed ·
+ *          header #e4000d + 25° overlay · button #da2032 / pressed #ae1928 · muted #666f78 ·
+ *          r8 · shadow 0 4px 10px/.05. Light uses their palette and nothing else, except the
+ *          loyalty violet (the site has no second hue that is distinct from red and blue).
+ *   dark   the same system at night: their dark navy tile #171f34 as the card, the same red.
  * Light is the default: it is the face of Moscow Transport its staff know.
  *
  * Structure matters here. @theme holds only RAW ramps, which never flip. Everything a
@@ -16,16 +19,16 @@
  */
 
 @theme {
-  /* ——— Raw dark ramp: mt-hackathon.ru, measured ——— */
-  --color-ink-950: #14102b; /* page, one step deeper than theirs for contrast headroom */
-  --color-ink-900: #1a1230; /* their body background, exact */
-  --color-ink-800: #241c42; /* raised surface */
-  --color-ink-700: #2c2e59; /* their card surface, exact */
-  --color-ink-600: #3c3f70;
-  --color-ink-500: #6a6c9b; /* 3.61:1 on ink-900 — form borders need 3:1 */
-  --color-ink-400: #a0a4c0; /* muted text — 7.3:1 */
-  --color-ink-200: #bec1c6; /* their secondary text, exact */
-  --color-ink-50: #f5f8fd; /* their body text, exact — 16.82:1 */
+  /* ——— Raw dark ramp: built around transport.mos.ru's own dark tile #171f34 ——— */
+  --color-ink-950: #0e1320; /* page */
+  --color-ink-900: #171f34; /* their «Москва едет» tile, exact — our card */
+  --color-ink-800: #1f2a44; /* raised surface */
+  --color-ink-700: #273553;
+  --color-ink-600: #34446a;
+  --color-ink-500: #6e7c9c; /* 3.92:1 on ink-900 — form borders need 3:1 */
+  --color-ink-400: #a2a9b1; /* their metadata grey, exact — 6.9:1 on ink-900 */
+  --color-ink-200: #bec1c6;
+  --color-ink-50: #f3f5f7; /* their page background, as text — 14.99:1 on ink-900 */
 
   /* ——— Raw light ramp: transport.mos.ru, measured ——— */
   --color-paper-50: #ffffff; /* their card fill, exact */
@@ -35,16 +38,16 @@
                                * still reads as a card when shadows are suppressed. */
   --color-paper-500: #75849a; /* 3.8:1 on white — form borders. Theirs is rgba(130,140,150,.4)
                                * at ~1.9:1, which fails WCAG 1.4.11; this is a deliberate fix. */
-  --color-paper-600: #5a6775; /* muted text — 5.29:1 on their bg. Theirs is #a2a9b1 at 2.17:1,
-                               * used for every date on the site. The other deliberate fix. */
+  --color-paper-600: #666f78; /* their secondary text, exact — 4.68:1 on their bg. (Their dates
+                               * use #a2a9b1 at 2.17:1; we do not.) */
   --color-paper-800: #2b3440;
   --color-paper-950: #10151c; /* 16.77:1. Theirs is pure #000; this is a hair softer. */
 
-  /* ——— Brand blue. Each theme takes its own site's value. ——— */
-  --color-blue-600: #0a51a1; /* transport.mos.ru link blue — 7.1:1 on light bg */
-  --color-blue-700: #08417f;
-  --color-blue-400: #3f6fd1; /* mt-hackathon.ru accent, exact */
-  --color-blue-300: #6f93e0; /* 6.08:1 on ink-950 — the dark theme's text-weight blue */
+  /* ——— Brand red: transport.mos.ru, measured ——— */
+  --color-red-600: #e4000d; /* header base */
+  --color-red-500: #da2032; /* .btn-primary — white on it 4.96:1 */
+  --color-red-700: #ae1928; /* .btn-primary:active — 7.07:1 on their bg, our brand text */
+  --color-blue-600: #0a51a1; /* their link blue — the safety meter */
 
   /* Commissioner is the closest public face to Moscow Sans, measured from their own OTF:
    * 2.13% weighted deviation against Inter's 5.53%. The ratio that matters is
@@ -81,7 +84,7 @@
   --text-eyebrow--line-height: 1;
   --text-eyebrow--font-weight: 600;
 
-  /* One tracking value for the uppercase blue eyebrow — mt-hackathon.ru's single most
+  /* One tracking value for the uppercase brand eyebrow — mt-hackathon.ru's single most
    * repeated device (16 instances). Theirs is letter-spacing:normal at 18px; at our 11px
    * uppercase it needs a little air. */
   --tracking-eyebrow: 0.06em;
@@ -98,23 +101,30 @@
   --card-foreground: var(--color-paper-950);
   --popover: var(--color-paper-50);
   --popover-foreground: var(--color-paper-950);
-  --primary: var(--color-blue-600);
+  --primary: var(--color-red-500);
   --primary-foreground: #ffffff;
   --secondary: var(--color-paper-200);
   --secondary-foreground: var(--color-paper-800);
   --muted: var(--color-paper-200);
   --muted-foreground: var(--color-paper-600);
-  --accent: #e6eef8; /* soft brand tint — brand text on it 6.64:1 */
-  --accent-foreground: var(--color-blue-700);
+  --accent: #fdeaec; /* soft brand tint — brand text on it 6.11:1 */
+  --accent-foreground: var(--color-red-700);
   --border: var(--color-paper-300);
   --input: var(--color-paper-500);
-  --ring: var(--color-blue-600);
+  --ring: var(--color-red-500);
 
-  --brand: var(--color-blue-600);
-  --brand-hover: var(--color-blue-700);
-  --brand-text: var(--color-blue-600); /* 7.1:1 — no separate text tone needed on light */
+  --brand: var(--color-red-500);
+  --brand-hover: var(--color-red-700);
+  --brand-text: var(--color-red-700); /* red-500 is only 4.54:1 on the page, so text steps down */
 
-  /* Meter and outcome semantics. Red belongs to danger only, never to the brand.
+  /* The red bar, exactly as theirs: base red under a 25° orange→crimson half-tint. */
+  --header-bg:
+    linear-gradient(25deg, rgb(209 67 15 / 0.5), rgb(209 15 51 / 0.5)), var(--color-red-600);
+  --header-foreground: #ffffff; /* 4.88:1 on the base red */
+  --header-active: rgb(0 0 0 / 0.1); /* their active nav tile is the bar, one shade down */
+
+  /* Meter and outcome semantics. Red is also the brand (their chrome), so danger is a
+   * *state*: a meter only turns red when it crosses the threshold, and never sits red at rest.
    * All clear 4.5:1 on the page background, so they may carry text, not just fills. */
   --safe: #0b7a52; /* 4.9:1 — fills, meters, borders */
   --warn: #9a5800; /* 5.1:1 */
@@ -131,9 +141,9 @@
   --danger-text: #a50e19; /* card 7.85 · page 7.18 · tint 5.86 · double tint 5.16 */
 
   /* Loyalty vs safety must never be confusable at a glance, so they differ in hue as
-   * well as fill level. Violet / blue on light, violet / cyan on dark. */
+   * well as fill level. Violet / their link blue on light, violet / cyan on dark. */
   --loyalty: #6d28d9; /* 6.5:1 */
-  --safety: #0b6fb0; /* 4.91:1 */
+  --safety: var(--color-blue-600); /* 7.1:1 */
 
   /* Elevation. --elev-1 is transport.mos.ru's card shadow, exact, used 22× on their site. */
   --elev-1: 0 4px 10px 0 rgb(0 0 0 / 0.05);
@@ -151,21 +161,26 @@
   --card-foreground: var(--color-ink-50);
   --popover: var(--color-ink-800);
   --popover-foreground: var(--color-ink-50);
-  --primary: var(--color-blue-400);
+  --primary: var(--color-red-500);
   --primary-foreground: #ffffff;
   --secondary: var(--color-ink-700);
   --secondary-foreground: var(--color-ink-50);
   --muted: var(--color-ink-800);
   --muted-foreground: var(--color-ink-400);
-  --accent: #232a52; /* soft brand tint — ink-50 on it 12.94:1 */
+  --accent: #3a1722; /* soft brand tint */
   --accent-foreground: var(--color-ink-50);
-  --border: #4a4d80; /* hairline, 2.27:1 on card — paired with the inset highlight below */
+  --border: var(--color-ink-600); /* hairline — paired with the inset highlight below */
   --input: var(--color-ink-500); /* 3.61:1 — form borders need 3:1 */
-  --ring: var(--color-blue-300); /* focus ring must be visible on dark: 6.08:1 */
+  --ring: #ff7a80; /* focus ring must be visible on dark: 7.37:1 */
 
-  --brand: var(--color-blue-400);
-  --brand-hover: #3560b8;
-  --brand-text: var(--color-blue-300); /* blue-400 is only 3.87:1 on ink-950, so text uses this */
+  --brand: var(--color-red-500); /* same red as light — white on it 4.96:1 */
+  --brand-hover: var(--color-red-700);
+  --brand-text: #ff7a80; /* red-500 is too dark to read on ink-950; 7.37:1 */
+
+  /* The same bar, dimmed so it does not glare at night: 7.36:1 for white on the base. */
+  --header-bg: linear-gradient(25deg, rgb(209 67 15 / 0.35), rgb(209 15 51 / 0.35)), #b00010;
+  --header-foreground: #ffffff;
+  --header-active: rgb(0 0 0 / 0.18);
 
   --safe: #3ddc97; /* 10.43:1 */
   --warn: #ffb03a; /* 10.12:1 */
@@ -219,6 +234,8 @@
   --color-danger-text: var(--danger-text);
   --color-loyalty: var(--loyalty);
   --color-safety: var(--safety);
+  --color-header-foreground: var(--header-foreground);
+  --color-header-active: var(--header-active);
 
   --shadow-card: var(--elev-1);
   --shadow-lift: var(--elev-2);
@@ -228,6 +245,11 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* A gradient is a background-image, which a --color-* token cannot carry. */
+@utility bg-header {
+  background: var(--header-bg);
 }
 
 /* The countdown ring, meter fills and the drawer all animate; respect the OS setting.
