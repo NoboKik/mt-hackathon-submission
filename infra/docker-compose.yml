@@ -1,9 +1,8 @@
 # cd infra && docker compose up --build   (or from the repo root: docker compose -f infra/docker-compose.yml up --build)
-# Caddy serves the app on http://localhost — swap the Caddyfile site address for a
-# real domain and Caddy gets HTTPS certificates automatically.
-# Credentials default to the dev values below; override POSTGRES_* in infra/.env (and DATABASE_URL in apps/web/.env to match).
-# AUTH_SECRET is empty unless infra/.env sets one (`openssl rand -hex 32`); the web service refuses
-# to serve in production without it, and an empty value must not break `compose up -d postgres`.
+# Every variable below comes from infra/.env — see infra/.env.example. With no .env at all the
+# stack still runs locally on http://localhost with dev credentials and an open demo login.
+# AUTH_SECRET empty: the web service refuses to sign sessions in production, but an empty value
+# must not break `compose up -d postgres` for local development.
 name: provodnik-400
 
 services:
@@ -52,6 +51,9 @@ services:
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-}
       LLM_REASONING_EFFORT: ${LLM_REASONING_EFFORT:-}
+      LLM_DAILY_LIMIT: ${LLM_DAILY_LIMIT:-}
+      # The demo login's invite code (/login?invite=…). Empty: the demo door is open.
+      DEMO_INVITE: ${DEMO_INVITE:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,6 +71,9 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    environment:
+      # Empty would reach Caddy as a blank site address (its own default only covers unset).
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
     ports:
       - '80:80'
       - '443:443'
