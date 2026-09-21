@@ -318,3 +318,25 @@ export async function leaderboardTotals(period: LeaderboardPeriod): Promise<Cach
   boards.set(period, board)
   return board
 }
+
+/** Auto mode's pool, oldest first: what pickSeed counts and what the prompt tells the model to avoid. */
+export async function generatedScenarios() {
+  return db()
+    .select({ id: scenarios.id, title: scenarios.title, category: scenarios.category })
+    .from(scenarios)
+    .where(eq(scenarios.source, 'generated'))
+    .orderBy(scenarios.createdAt)
+}
+
+/** A validated LLM draft joins the pool. Never the catalogue: that is `source = 'curated'`. */
+export async function insertGenerated(s: Scenario) {
+  await db().insert(scenarios).values({
+    id: s.id,
+    title: s.title,
+    category: s.category,
+    difficulty: s.difficulty,
+    json: s,
+    source: 'generated',
+    status: 'draft',
+  })
+}
