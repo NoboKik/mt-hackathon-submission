@@ -29,6 +29,11 @@ export function checkDraft(data: unknown, id: string, seed: IncidentSeed) {
   const result = validateScenario(draft, id)
   if (!result.ok) return result
   const errors: string[] = []
+  // validateScenario allows an unwinnable scenario; the debrief's expert path needs one success.
+  const wins = Object.values(result.scenario.nodes).filter(
+    (n) => n.type === 'end' && n.outcome === 'success',
+  ).length
+  if (wins !== 1) errors.push(`nodes: ${wins} "success" end nodes, expected exactly 1`)
   if (result.scenario.category !== seed.category)
     errors.push(`category: "${result.scenario.category}", expected "${seed.category}"`)
   for (const [nodeId, node] of Object.entries(result.scenario.nodes))

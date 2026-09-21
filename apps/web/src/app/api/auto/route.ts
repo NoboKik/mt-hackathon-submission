@@ -16,7 +16,7 @@ export async function POST() {
 
   const [scenarioId] = await unplayedGenerated(userId)
   // Not awaited: the player gets their scenario now, the pool refills while they play it.
-  void topUpPool(userId)
+  void topUpPool(userId, scenarioId)
   if (scenarioId) return NextResponse.json({ scenarioId })
 
   try {

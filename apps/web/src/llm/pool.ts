@@ -1,7 +1,7 @@
 // Auto mode's pool of generated scenarios. Generation takes 20–60 s, so players are only ever
 // served what is already here; this file refills it in the background.
 import { generatedScenarios, insertGenerated, unplayedGenerated } from '@/db/queries'
-import { llmConfig } from './client'
+import { LlmConfigError, llmConfig } from './client'
 import { generateScenario, incidentKeyOf } from './generate'
 import { pickSeed } from './seeds'
 
@@ -26,15 +26,18 @@ let generating = false
  * Fire-and-forget from POST /api/auto: tops this player's queue back up to POOL_TARGET. Needs a
  * long-lived Node process (ours is `node server.js`); a serverless host would kill it mid-way.
  */
-export async function topUpPool(userId: string) {
+export async function topUpPool(userId: string, served?: string) {
   if (generating) return
   generating = true
   try {
-    llmConfig() // no key: nothing to do, and the route has already told the player
-    const missing = POOL_TARGET - (await unplayedGenerated(userId)).length
+    llmConfig()
+    // The scenario just handed out has no session yet, but it is not waiting in the queue either.
+    const ready = (await unplayedGenerated(userId)).filter((id) => id !== served)
+    const missing = POOL_TARGET - ready.length
     if (missing > 0) await topUp(missing)
   } catch (e) {
-    console.error('auto: pool top-up failed', e)
+    // No key: nothing to do, and the route has already told the player.
+    if (!(e instanceof LlmConfigError)) console.error('auto: pool top-up failed', e)
   } finally {
     generating = false
   }

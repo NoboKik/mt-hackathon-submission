@@ -59,6 +59,13 @@ test('the id is always ours, never the model slug', async () => {
   expect(incidentKeyOf('auto-safety-unattended-bag-0a1b2c3d')).toBe('unattended-bag')
 })
 
+test('an unwinnable draft is a retry', async () => {
+  const noWin = valid.replace('"outcome":"success"', '"outcome":"partial"')
+  const { llm, sent } = fake(noWin, valid)
+  await generateScenario(SEED, [], llm)
+  expect(sent[1].at(-1)?.content).toContain('"success" end nodes')
+})
+
 test('a regulation off the list or a wrong category is a retry', async () => {
   const offList = valid.replaceAll(REGULATIONS[0], 'Инструкция, п. 9.99')
   const { llm, sent } = fake(offList, valid)

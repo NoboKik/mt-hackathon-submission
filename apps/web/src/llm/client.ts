@@ -35,9 +35,11 @@ export async function complete(
       // DeepSeek's JSON mode needs the word "json" in the prompt; the system prompt has it.
       response_format: { type: 'json_object' },
       temperature: 0.9,
-      // NOTE: fixed at low — ~3× faster than the default on a flash model, and the validator
-      // plus retries catch what the shorter think misses. An env var if a provider rejects it.
-      reasoning_effort: 'low',
+      // Optional: `low` is ~3× faster than the default on DeepSeek flash, and the validator plus
+      // retries catch what the shorter think misses. Unset, it isn't sent — some models 400 on it.
+      ...(process.env.LLM_REASONING_EFFORT
+        ? { reasoning_effort: process.env.LLM_REASONING_EFFORT }
+        : {}),
     }),
     signal: AbortSignal.timeout(opts.timeoutMs ?? 120_000),
   })

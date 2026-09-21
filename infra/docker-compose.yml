@@ -32,6 +32,11 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-provodnik}:${POSTGRES_PASSWORD:-provodnik}@postgres:5432/${POSTGRES_DB:-provodnik}
       AUTH_SECRET: ${AUTH_SECRET:-}
+      # Auto mode's generator (any OpenAI-compatible endpoint). Empty: the app runs, /api/auto says so.
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_REASONING_EFFORT: ${LLM_REASONING_EFFORT:-}
     depends_on:
       postgres:
         condition: service_healthy
