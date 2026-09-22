@@ -47,10 +47,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   let result: ChooseResult
   try {
-    result = choose(scenario, session.currentNode, choiceId, {
-      loyalty: session.loyalty,
-      safety: session.safety,
-    })
+    result = choose(
+      scenario,
+      session.currentNode,
+      choiceId,
+      {
+        loyalty: session.loyalty,
+        safety: session.safety,
+      },
+      session.seed,
+    )
   } catch (e) {
     // A choice id the node doesn't have: a stale or hand-rolled client, not a server fault.
     if (e instanceof EngineError) return fail(400, ru.errors.badRequest)

@@ -21,10 +21,10 @@ export async function POST(req: Request) {
   if (!found) return fail(404, ru.errors.scenarioNotFound)
   const { scenario, source, status } = found
 
-  const result = enter(scenario, scenario.start, scenario.initial)
-  const node = endText(result.node)
-  // NOTE: reserved for reproducible demo replays; nothing reads the seed yet.
+  // Seeds the choice shuffle; the same seed replays the same order.
   const seed = randomInt(2 ** 31)
+  const result = enter(scenario, scenario.start, scenario.initial, seed)
+  const node = endText(result.node)
   const values: NewGameSession = {
     userId,
     scenarioId: scenario.id,

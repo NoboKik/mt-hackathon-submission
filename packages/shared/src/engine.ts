@@ -67,7 +67,26 @@ const thresholdEnd = (failedMeter: MeterKey): ClientNode => ({
   failedMeter,
 })
 
-export function toClientNode(scenario: Scenario, id: string): ClientNode {
+/** Seeded Fisher–Yates over mulberry32, keyed by seed + node id: stable across a session, varies between sessions. */
+export function shuffled<T>(items: T[], seed: number, key: string): T[] {
+  let a = seed
+  for (const ch of key) a = Math.imul(a ^ ch.charCodeAt(0), 0x9e3779b1)
+  const rand = () => {
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 2 ** 32
+  }
+  const out = [...items]
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1))
+    ;[out[i], out[j]] = [out[j] as T, out[i] as T]
+  }
+  return out
+}
+
+/** `seed` shuffles the choice order so "always press 1" stops working; omit it for authored order. */
+export function toClientNode(scenario: Scenario, id: string, seed?: number): ClientNode {
   const node = nodeAt(scenario, id)
   switch (node.type) {
     case 'choice':
@@ -79,7 +98,9 @@ export function toClientNode(scenario: Scenario, id: string): ClientNode {
         // Spread, not `image: node.image`: an absent image must not become a key at all.
         ...(node.image ? { image: node.image } : {}),
         timerSec: node.timerSec,
-        choices: node.choices.map((c) => ({ id: c.id, text: c.text })),
+        choices: (seed === undefined ? node.choices : shuffled(node.choices, seed, id)).map(
+          (c) => ({ id: c.id, text: c.text }),
+        ),
       }
     case 'consequence':
       return { type: 'consequence', id, text: node.text, effects: node.effects }
@@ -91,7 +112,12 @@ export function toClientNode(scenario: Scenario, id: string): ClientNode {
 /** `steps` are the consequence nodes walked through, in order, for the client to show as toasts. */
 export type EnterResult = { steps: ClientNode[]; node: ClientNode; meters: Meters }
 
-export function enter(scenario: Scenario, nodeId: string, meters: Meters): EnterResult {
+export function enter(
+  scenario: Scenario,
+  nodeId: string,
+  meters: Meters,
+  seed?: number,
+): EnterResult {
   const steps: ClientNode[] = []
   let current = nodeId
   let now = meters
@@ -100,7 +126,7 @@ export function enter(scenario: Scenario, nodeId: string, meters: Meters): Enter
   for (;;) {
     const node = nodeAt(scenario, current)
     if (node.type !== 'consequence') {
-      return { steps, node: toClientNode(scenario, current), meters: now }
+      return { steps, node: toClientNode(scenario, current, seed), meters: now }
     }
     // Push before applying: the player must see the consequence that broke the meter.
     steps.push(toClientNode(scenario, current))
@@ -120,18 +146,19 @@ export function choose(
   nodeId: string,
   choiceId: string,
   meters: Meters,
+  seed?: number,
 ): ChooseResult {
   const node = nodeAt(scenario, nodeId)
   if (node.type !== 'choice') throw new EngineError(`node "${nodeId}" is not a choice node`)
   // A timeout is a real branch, and it costs nothing by itself: onTimeout carries the damage.
-  if (choiceId === 'timeout') return enter(scenario, node.onTimeout, meters)
+  if (choiceId === 'timeout') return enter(scenario, node.onTimeout, meters, seed)
 
   const choice = node.choices.find((c) => c.id === choiceId)
   if (!choice) throw new EngineError(`node "${nodeId}" has no choice "${choiceId}"`)
   const next = applied(meters, choice.effects)
   const failed = breached(scenario, next)
   if (failed) return { steps: [], node: thresholdEnd(failed), meters: next, choice }
-  return { ...enter(scenario, choice.next, next), choice }
+  return { ...enter(scenario, choice.next, next, seed), choice }
 }
 
 export function debriefFor(scenario: Scenario, endId: string): Debrief {

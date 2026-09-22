@@ -6,6 +6,7 @@ import {
   debriefFor,
   EngineError,
   enter,
+  shuffled,
   THRESHOLD_END_ID,
   toClientNode,
 } from './engine'
@@ -141,4 +142,12 @@ test('the expert path c1 → c4 → c7 reaches the success ending', () => {
   expect(third.meters).toEqual({ loyalty: 85, safety: 100 })
   expect(third.choice?.competencies).toEqual({ communication: 2, safety: 1 })
   expect(debriefFor(s, third.node.id).expertPath).toEqual(['c1', 'c4', 'c7'])
+})
+
+test('shuffled is a stable permutation that varies by seed', () => {
+  const xs = [1, 2, 3, 4]
+  expect(shuffled(xs, 7, 'n')).toEqual(shuffled(xs, 7, 'n'))
+  expect([...shuffled(xs, 7, 'n')].sort()).toEqual(xs)
+  const orders = new Set(Array.from({ length: 50 }, (_, s) => shuffled(xs, s, 'n').join()))
+  expect(orders.size).toBeGreaterThan(5)
 })
