@@ -4,24 +4,23 @@ One JSON file per scenario, named `<id>.json` — the file name **is** the `id`,
 `pnpm validate:content` fails the build if they differ. The schema is frozen at `schema-v1`
 (see [`packages/shared/src/schema.ts`](../../packages/shared/src/schema.ts)).
 
-Target for the 25 Sept checkpoint: **8 scenarios**. One is written; the seven below are the
-content author's job. `medical-faint-01.json` is the worked example — copy it and rewrite.
+Target for the 25 Sept checkpoint: **8 scenarios** — all eight written (22 Sept 2026).
+`medical-faint-01.json` is the worked example — copy it and rewrite.
 
 ## Slots
 
 | # | File | Title | Category | Difficulty | Core tension |
 | --- | --- | --- | --- | --- | --- |
 | 1 | `medical-faint-01.json` ✅ | Пассажиру плохо в вагоне бизнес-класса | `medical` | 2 | Speed of assessment vs panic control |
-| 2 | `conflict-seat-01.json` | Конфликт из-за места у окна | `conflict` | 1 | Fairness vs premium expectations |
-| 3 | `service-meal-01.json` | Не загружено питание для первого класса | `service` | 1 | Service recovery within compensation policy |
-| 4 | `safety-smoking-01.json` | Курение в туалете | `safety` | 1 | Enforcement vs conflict |
-| 5 | `conflict-drunk-01.json` | Нетрезвый пассажир мешает соседям | `conflict` | 2 | Loyalty of the others vs escalation |
-| 6 | `communication-delay-01.json` | Задержка на 40 минут | `communication` | 2 | Information cadence, compensation, tone |
-| 7 | `safety-bag-01.json` | Бесхозная сумка в тамбуре | `safety` | 3 | Protocol vs not alarming the car |
-| 8 | `medical-allergy-01.json` | Аллергическая реакция после обеда | `medical` | 3 | The passenger's own auto-injector, a doctor via the начальник поезда, allergen policy |
+| 2 | `conflict-seat-01.json` ✅ | Конфликт из-за места у окна | `conflict` | 1 | Fairness vs premium expectations |
+| 3 | `service-meal-01.json` ✅ | Не загружено питание для первого класса | `service` | 1 | Service recovery within compensation policy |
+| 4 | `safety-smoking-01.json` ✅ | Курение в туалете | `safety` | 1 | Enforcement vs conflict |
+| 5 | `conflict-drunk-01.json` ✅ | Нетрезвый пассажир мешает соседям | `conflict` | 2 | Loyalty of the others vs escalation |
+| 6 | `communication-delay-01.json` ✅ | Задержка на 40 минут | `communication` | 2 | Information cadence, compensation, tone |
+| 7 | `safety-bag-01.json` ✅ | Бесхозная сумка в тамбуре | `safety` | 3 | Protocol vs not alarming the car |
+| 8 | `medical-allergy-01.json` ✅ | Аллергическая реакция после обеда | `medical` | 3 | The passenger's own auto-injector, a doctor via the начальник поезда, allergen policy |
 
-**Priority is #2** — `diplomat` (Дипломат) is the one achievement no player can reach until a
-`conflict` scenario exists.
+`conflict-seat-01` is how `diplomat` (Дипломат) unlocks: its expert path ends at 85/85.
 
 The spread is deliberate: all five categories are covered, difficulty lands on 3×1, 3×2, 2×3, and
 the profile radar only fills in if choices spend competency points across all five axes.
