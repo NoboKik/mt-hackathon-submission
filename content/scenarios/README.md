@@ -18,7 +18,7 @@ content author's job. `medical-faint-01.json` is the worked example — copy it 
 | 5 | `conflict-drunk-01.json` | Нетрезвый пассажир мешает соседям | `conflict` | 2 | Loyalty of the others vs escalation |
 | 6 | `communication-delay-01.json` | Задержка на 40 минут | `communication` | 2 | Information cadence, compensation, tone |
 | 7 | `safety-bag-01.json` | Бесхозная сумка в тамбуре | `safety` | 3 | Protocol vs not alarming the car |
-| 8 | `medical-allergy-01.json` | Аллергическая реакция после обеда | `medical` | 3 | Find the epinephrine, call the medic, allergen policy |
+| 8 | `medical-allergy-01.json` | Аллергическая реакция после обеда | `medical` | 3 | The passenger's own auto-injector, a doctor via the начальник поезда, allergen policy |
 
 **Priority is #2** — `diplomat` (Дипломат) is the one achievement no player can reach until a
 `conflict` scenario exists.
@@ -47,7 +47,29 @@ the profile radar only fills in if choices spend competency points across all fi
 - Dialogue is read under a countdown. Two sentences per node, not five.
 - `timerSec` 10–20: generous timers teach, punitive ones only measure reading speed.
 - The timeout branch is a real branch and usually the worst one — write it, do not phone it in.
-- Context to stay inside: Москва — Санкт-Петербург, 2 ч 15 мин, business and first class,
-  an on-board medic in the staff car, a dispatcher on the radio, no stop for long stretches.
+- **Context** to stay inside (checked 22 Sept 2026 against the public RZD «Регламент организации
+  обслуживания пассажиров высокоскоростного поезда „Сапсан“», распоряжение № 2642/р от 27.11.2019 —
+  the closest published analogue; ВСМ-400's own standards are not public). Москва — Санкт-Петербург,
+  2 ч 15 мин, business and first class, no stop for long stretches, sealed windows, no smoking
+  anywhere on board, тамбур included.
+  - **Crew**: начальник поезда (leads the crew; the conductor reports every incident and conflict
+    to them), бортинженер, проводники, стюарды of the catering company (they serve the meals),
+    and two инспекторы ПТБ (transport security). Police (сотрудники полиции) ride only on some
+    trains; otherwise the начальник поезда has them meet the train at the next station.
+  - **No medic on board.** On a medical case the conductor tells the начальник поезда the
+    passenger's state; the начальник pages a doctor among the passengers over the PA,
+    calls an ambulance to the nearest station **through the машинист**, and organises first aid. Every car has an
+    аптечка первой помощи; there is no documented AED. A conductor may help a passenger take
+    medicine the passenger's own doctor prescribed (their own auto-injector, inhaler) — nothing
+    from the crew's stock.
+  - **Chain of communication**: conductor → начальник поезда → машинист → the outside world
+    (dispatcher, ambulance, police). The documented route to an ambulance or police runs through
+    the начальник поезда and the машинист; the conductor does not radio the dispatcher.
+  - **Violators** (smoking, disorder, a drunk passenger): report to the начальник поезда, the
+    инспекторы ПТБ and police on board; no action of your own against the person unless they
+    directly endanger others. Only police remove a passenger from the train.
+  - **Service recovery**: when the carrier is at fault (a seat downgrade, a missing service), the
+    начальник поезда may give the passenger food from the bistro menu. The conductor offers it via
+    the начальник поезда, never on their own authority.
 - `debrief.lesson` says what an experienced conductor does and why; `debrief.regulation` names
   the rule. That pair is what makes this training rather than a quiz with graphics.
