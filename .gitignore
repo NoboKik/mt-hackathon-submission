@@ -16,3 +16,6 @@ coverage/
 
 # deploy.sh backup
 infra/backups/
+
+# generator scratch (fill.ts --out)
+drafts/
