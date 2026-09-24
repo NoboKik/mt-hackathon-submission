@@ -8,6 +8,14 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Tailwind v4 dropped the pointer cursor on buttons; restore it. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  summary,
+  label[for],
+  select {
+    cursor: pointer;
+  }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
