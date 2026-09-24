@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Commissioner } from 'next/font/google'
+import { Inter } from 'next/font/google'
 import { ru } from '@/i18n/ru'
 import './globals.css'
 
@@ -7,10 +7,10 @@ import './globals.css'
 // first paint off a third party. See the note in tokens.css for why this face.
 // 500 and 600 are loaded because the type scale uses them — without them `font-medium`
 // and `font-semibold` silently render as 400.
-const sans = Commissioner({
+const sans = Inter({
   subsets: ['cyrillic', 'latin'],
   weight: ['400', '500', '600', '700'],
-  variable: '--font-commissioner',
+  variable: '--font-inter',
   display: 'swap',
 })
 
