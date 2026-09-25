@@ -1,7 +1,7 @@
 # Scenario slots
 
 One JSON file per scenario, named `<id>.json` — the file name **is** the `id`, and
-`pnpm validate:content` fails the build if they differ. The schema is frozen at `schema-v1`
+`pnpm validate:content` fails the build if they differ. The schema is frozen at `schema-v1.1`
 (see [`packages/shared/src/schema.ts`](../../packages/shared/src/schema.ts)).
 
 Target for the 25 Sept checkpoint: **8 scenarios** — all eight written (22 Sept 2026), checked

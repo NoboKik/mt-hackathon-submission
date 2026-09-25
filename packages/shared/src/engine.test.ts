@@ -167,7 +167,7 @@ test('debriefSteps replays the path: per-step deltas, consequences and the exper
   expect(steps.map((x) => x.effects)).toEqual([
     { loyalty: -15, safety: -10 },
     { loyalty: 5, safety: 10 },
-    { loyalty: -10, safety: 5 },
+    { loyalty: -25, safety: 5 }, // c8 plus the n3_loud consequence
   ])
   const [timeout, expert, off] = steps
   expect(timeout).toMatchObject({

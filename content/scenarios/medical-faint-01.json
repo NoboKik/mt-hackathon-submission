@@ -40,7 +40,7 @@
           "id": "c2",
           "text": "Сразу отправить соседа за начальником поезда, не осматривая пассажирку",
           "effects": {
-            "loyalty": -5,
+            "loyalty": -10,
             "safety": 5
           },
           "competencies": {
@@ -65,7 +65,7 @@
     },
     "n1_timeout": {
       "type": "consequence",
-      "text": "Вы замешкались. Сосед начинает паниковать и зовёт на помощь на весь вагон.",
+      "text": "Вы замешкались. Сосед сам тормошит её за плечо и на весь вагон зовёт проводника.",
       "effects": {
         "loyalty": -15,
         "safety": -10
@@ -161,7 +161,7 @@
           "competencies": {
             "communication": 1
           },
-          "next": "end_partial"
+          "next": "n3_loud"
         },
         {
           "id": "c9",
@@ -172,6 +172,62 @@
           },
           "competencies": {
             "medical": -1
+          },
+          "next": "end_fail"
+        }
+      ]
+    },
+    "n3_loud": {
+      "type": "consequence",
+      "text": "По вагону проходит волна: пассажиры встают с мест и тянутся посмотреть. Сосед вскакивает.",
+      "effects": {
+        "loyalty": -15,
+        "safety": 0
+      },
+      "branches": [{ "if": { "loyalty": { "lt": 40 } }, "next": "n_panic" }],
+      "next": "end_partial"
+    },
+    "n_panic": {
+      "type": "choice",
+      "speaker": "Сосед",
+      "text": "«Ей же хуже! Давайте поднимем её и выведем в тамбур, там воздух!» Он уже подхватывает её под руки.",
+      "timerSec": 12,
+      "onTimeout": "end_fail",
+      "choices": [
+        {
+          "id": "c11",
+          "text": "Спокойно и твёрдо: «Понимаю, вам страшно. Поднимать её нельзя, врача уже ищут. Помогите мне: расстегните ей воротник и подайте воды»",
+          "effects": {
+            "loyalty": 10,
+            "safety": 10
+          },
+          "competencies": {
+            "communication": 2,
+            "medical": 1
+          },
+          "next": "end_partial"
+        },
+        {
+          "id": "c12",
+          "text": "Помочь ему довести её до тамбура, раз так ему спокойнее",
+          "effects": {
+            "loyalty": 5,
+            "safety": -20
+          },
+          "competencies": {
+            "medical": -2
+          },
+          "next": "end_fail"
+        },
+        {
+          "id": "c13",
+          "text": "Оттеснить соседа: «Отойдите и не мешайте работать!»",
+          "effects": {
+            "loyalty": -15,
+            "safety": -10
+          },
+          "competencies": {
+            "conflict": -2
           },
           "next": "end_fail"
         }

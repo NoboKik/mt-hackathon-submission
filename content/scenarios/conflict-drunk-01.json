@@ -89,7 +89,7 @@
             "safety": 2,
             "communication": 1
           },
-          "next": "n3"
+          "next": "n3_chief"
         },
         {
           "id": "d5",
@@ -138,7 +138,7 @@
         "loyalty": -10,
         "safety": -10
       },
-      "next": "n3"
+      "next": "n3_chief"
     },
     "n2_grab": {
       "type": "consequence",
@@ -147,7 +147,67 @@
         "loyalty": -10,
         "safety": -15
       },
-      "next": "n3"
+      "next": "n3_chief"
+    },
+    "n3_chief": {
+      "type": "consequence",
+      "text": "Через несколько минут в вагон входит начальник поезда и сразу направляется к вам.",
+      "effects": {
+        "loyalty": 0,
+        "safety": 0
+      },
+      "branches": [
+        { "if": { "chose": "d4" }, "next": "n3" },
+        { "if": { "chose": "d10" }, "next": "n3" }
+      ],
+      "next": "n3_late"
+    },
+    "n3_late": {
+      "type": "choice",
+      "speaker": "Начальник поезда",
+      "text": "«Ко мне пришла пассажирка из вашего вагона: у вас там скандал с самого отправления. Почему я узнаю об этом от неё, а не от вас?»",
+      "timerSec": 15,
+      "onTimeout": "end_partial",
+      "choices": [
+        {
+          "id": "d11",
+          "text": "«Должен был доложить сразу». И коротко по фактам: кто, где, с какого времени и что уже сделано",
+          "effects": {
+            "loyalty": 0,
+            "safety": 10
+          },
+          "competencies": {
+            "communication": 2,
+            "safety": 1
+          },
+          "next": "n3"
+        },
+        {
+          "id": "d12",
+          "text": "«Справлялся сам, не хотел вас отвлекать»",
+          "effects": {
+            "loyalty": -5,
+            "safety": -10
+          },
+          "competencies": {
+            "communication": -2
+          },
+          "next": "end_partial"
+        },
+        {
+          "id": "d13",
+          "text": "Предложить вдвоём вывести его в тамбур и продержать там до станции",
+          "effects": {
+            "loyalty": 0,
+            "safety": -15
+          },
+          "competencies": {
+            "conflict": -1,
+            "safety": -1
+          },
+          "next": "end_fail"
+        }
+      ]
     },
     "n3": {
       "type": "choice",
@@ -234,7 +294,7 @@
         "loyalty": -5,
         "safety": -10
       },
-      "next": "n3"
+      "next": "n3_chief"
     }
   }
 }

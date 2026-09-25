@@ -140,15 +140,17 @@ describe('graph checks', () => {
 
   test('4. at most 12 nodes', () => {
     const errors = errorsAfter((s) => {
-      for (let i = 0; i < 6; i++) s.nodes[`extra${i}`] = { ...s.nodes.n1_timeout, next: 'end_good' }
+      for (let i = 0; Object.keys(s.nodes).length < 13; i++)
+        s.nodes[`extra${i}`] = { ...s.nodes.n1_timeout, next: 'end_good' }
     })
     expectError(errors, 'nodes: 13 nodes, expected 6–12')
   })
 
   test('4. at least 6 nodes', () => {
     const errors = errorsAfter((s) => {
-      delete s.nodes.n3
-      delete s.nodes.n1_timeout
+      for (const id of Object.keys(s.nodes).filter((id) => id !== s.start)) {
+        if (Object.keys(s.nodes).length > 5) delete s.nodes[id]
+      }
     })
     expectError(errors, 'nodes: 5 nodes, expected 6–12')
   })
@@ -234,8 +236,8 @@ describe('graph checks', () => {
 
   test('10. at least one loyalty-vs-safety trade-off', () => {
     const errors = errorsAfter((s) => {
-      for (const id of ['n1', 'n2', 'n3'] as const) {
-        for (const c of s.nodes[id].choices) c.effects = { loyalty: 5, safety: 5 }
+      for (const n of Object.values(s.nodes) as Fixture['nodes'][string][]) {
+        if (n.type === 'choice') for (const c of n.choices) c.effects = { loyalty: 5, safety: 5 }
       }
     })
     expect(errors).toEqual([
