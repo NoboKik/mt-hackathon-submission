@@ -4,6 +4,7 @@
 
 import type {
   AchievementCode,
+  Competency,
   EarnedAchievement,
   FinishedRow,
   LeaderboardPeriod,
@@ -472,11 +473,14 @@ export async function integrationInput() {
       .select({
         userId: sessions.userId,
         scenarioId: sessions.scenarioId,
+        // Off the json, like profileSessions: the text column is not typed as a Competency.
+        category: sql<Competency>`${scenarios.json}->>'category'`,
         score: sessions.score,
         competencyDeltas: sessions.competencyDeltas,
         finishedAt: sessions.finishedAt,
       })
       .from(sessions)
+      .innerJoin(scenarios, eq(scenarios.id, sessions.scenarioId))
       .where(isNotNull(sessions.finishedAt)),
     db()
       .select({ userId: userAchievements.userId, code: userAchievements.code })

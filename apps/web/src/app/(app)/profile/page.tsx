@@ -5,6 +5,8 @@ import {
   type GrowthZones,
   type MeResponse,
   type ProfileCompetency,
+  type PromotionReadiness,
+  type Standing,
 } from '@p400/shared'
 import { useQuery } from '@tanstack/react-query'
 import { Lock } from 'lucide-react'
@@ -152,6 +154,68 @@ function Growth({ growth: g }: { growth: GrowthZones }) {
   )
 }
 
+/** The two numbers the Q&A asked for: the company percentile and the crew average. */
+function StandingCard({ s }: { s: Standing }) {
+  const t = ru.profile.standing
+  return (
+    <section className="flex flex-col gap-3">
+      <SectionTitle>{t.title}</SectionTitle>
+      <Card className="grid gap-5 sm:grid-cols-2">
+        {s.percentile === null ? (
+          <Stat label={t.percentile} value="—" hint={t.alone} />
+        ) : (
+          <Stat label={t.percentile} value={t.better(s.percentile)} hint={t.betterHint} />
+        )}
+        {s.crewAverage === null ? (
+          <Stat label={t.crew} value={s.total} hint={t.noCrew} />
+        ) : (
+          <Stat
+            label={t.crew}
+            value={
+              <span className={s.total >= s.crewAverage ? 'text-safe-text' : undefined}>
+                {s.total} / {s.crewAverage}
+              </span>
+            }
+            hint={t.crewHint(s.crewAverage, s.crewSize)}
+          />
+        )}
+      </Card>
+    </section>
+  )
+}
+
+/** One bar for the whole verdict, then each criterion with the number it still needs. */
+function Readiness({ r }: { r: PromotionReadiness }) {
+  const t = ru.profile.readiness
+  return (
+    <section className="flex flex-col gap-3">
+      <SectionTitle>{t.title}</SectionTitle>
+      <Card className="flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-3">
+          <Chip tone={r.ready ? 'safe' : 'neutral'}>{r.ready ? t.ready : t.notReady}</Chip>
+          <span className="text-sm font-semibold tabular-nums">{`${r.percent}\u00a0%`}</span>
+        </div>
+        <Progress value={r.percent} label={t.title} />
+        <ul className="flex flex-col gap-2.5">
+          {r.criteria.map((c) => (
+            <li key={c.key} className="flex items-baseline justify-between gap-3 text-sm">
+              <span className="text-muted-foreground">{t.criteria[c.key]}</span>
+              <span
+                className={cn(
+                  'shrink-0 font-semibold tabular-nums',
+                  c.met ? 'text-safe-text' : 'text-foreground',
+                )}
+              >
+                {c.value} / {c.target}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </Card>
+    </section>
+  )
+}
+
 export default function ProfilePage() {
   const router = useRouter()
   const me = useQuery({
@@ -226,6 +290,10 @@ export default function ProfilePage() {
           </ul>
         </Card>
       </section>
+
+      {d.standing && <StandingCard s={d.standing} />}
+
+      <Readiness r={d.readiness} />
 
       {d.growth && <Growth growth={d.growth} />}
 

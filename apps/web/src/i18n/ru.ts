@@ -140,6 +140,29 @@ export const ru = {
       recommended: 'Рекомендуем',
       start: 'Пройти',
     },
+    // GET /api/me's `standing`: the leaderboard's all-time total against the company and crew.
+    standing: {
+      title: 'Сравнение с коллегами',
+      percentile: 'Относительно компании',
+      better: (percent: number) => `лучше ${percent}\u00a0%`,
+      betterHint: 'проводников по баллам рейтинга',
+      alone: 'Сравнить пока не с кем.',
+      crew: 'Против бригады',
+      crewHint: (average: number, size: number) =>
+        `ваши баллы против среднего ${average} по бригаде (${size}\u00a0чел.)`,
+      noCrew: 'Бригада не назначена.',
+    },
+    readiness: {
+      title: 'Готовность к бизнес/первому классу',
+      ready: 'Готов к переводу',
+      notReady: 'Пока не готов',
+      criteria: {
+        service: 'Премиальный сервис, баллов',
+        conflict: 'Урегулирование конфликтов, баллов',
+        communication: 'Коммуникация, баллов',
+        serviceBest: 'Лучший результат в сервисном сценарии',
+      },
+    },
   },
   leaderboard: {
     title: 'Рейтинг проводников',
@@ -203,6 +226,11 @@ export const ru = {
     fails: 'Провалы',
     visits: 'решений',
     noRuns: 'В этой выборке ещё нет завершённых прогонов.',
+    readiness: 'Готовность к бизнес/первому классу',
+    readinessHint: 'Пороги по сервису, конфликтам и коммуникации плюс успех в сервисном сценарии.',
+    readinessSummary: (ready: number, total: number) => `Готовы к переводу: ${ready} из ${total}.`,
+    ready: 'Готов',
+    noPeople: 'В этой выборке нет сотрудников.',
     noNodes:
       'Нет таймаутов и провалов с записанным путём: сид хранит только итоги, узлы появятся после живых прогонов.',
   },

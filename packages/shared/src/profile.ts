@@ -8,7 +8,7 @@
 // would only buy a type-only import cycle.
 
 import { ACHIEVEMENT_CODES, type AchievementCode } from './achievements'
-import type { ScenarioListItem } from './api'
+import type { LeaderboardRow, ScenarioListItem } from './api'
 import { COMPETENCIES, type Competency, type Outcome, type Scenario } from './schema'
 
 /** Стажёр → Проводник → Старший → Наставник. Cosmetic, but they are what the profile screen shows. */
@@ -168,6 +168,78 @@ export function growthZones(
   }
 }
 
+/**
+ * «Готовность к бизнес/первому классу»: HR promotes conductors from стандарт/комфорт to бизнес/
+ * первый on this. Three competency floors plus a successful run in a service scenario (a success
+ * scores 100 before bonuses).
+ * NOTE: the floors are calibrated to the seeded history (single-digit points per axis after a
+ * dozen runs), not to COMPETENCY_LEVELS. Retune when the catalogue grows.
+ */
+export const PROMOTION_TARGETS = { service: 4, conflict: 2, communication: 2, serviceBest: 100 }
+
+export type PromotionCriterion = {
+  key: keyof typeof PROMOTION_TARGETS
+  value: number
+  target: number
+  met: boolean
+}
+
+/** `percent` is the average progress over the criteria, each capped at its target. */
+export type PromotionReadiness = { ready: boolean; percent: number; criteria: PromotionCriterion[] }
+
+/** `points` floored at 0 like the radar's; `serviceBest` is the best score in any service scenario. */
+export function promotionReadiness(
+  points: Readonly<Record<Competency, number>>,
+  serviceBest: number,
+): PromotionReadiness {
+  const criteria = (Object.keys(PROMOTION_TARGETS) as PromotionCriterion['key'][]).map((key) => {
+    const value = key === 'serviceBest' ? serviceBest : points[key]
+    const target = PROMOTION_TARGETS[key]
+    return { key, value, target, met: value >= target }
+  })
+  return {
+    ready: criteria.every((c) => c.met),
+    percent: Math.round(
+      (100 * criteria.reduce((sum, c) => sum + Math.min(1, Math.max(0, c.value) / c.target), 0)) /
+        criteria.length,
+    ),
+    criteria,
+  }
+}
+
+/**
+ * Where the viewer stands, on the leaderboard's all-time total (curated scenarios only).
+ * `percentile`: the share of other conductors with a strictly lower total, null when alone.
+ * `crewAverage`: the mean total of the viewer's crew, the viewer included; null without a crew.
+ */
+export type Standing = {
+  total: number
+  percentile: number | null
+  crewAverage: number | null
+  crewSize: number
+}
+
+export function standingFor(
+  userId: string,
+  rows: readonly Pick<LeaderboardRow, 'userId' | 'depot' | 'crew' | 'total'>[],
+): Standing | null {
+  const me = rows.find((r) => r.userId === userId)
+  if (!me) return null
+  const others = rows.filter((r) => r !== me)
+  // Crew names repeat across depots, hence both keys, as on the leaderboard.
+  const crew = me.crew ? rows.filter((r) => r.depot === me.depot && r.crew === me.crew) : []
+  return {
+    total: me.total,
+    percentile: others.length
+      ? percent(others.filter((r) => r.total < me.total).length, others.length)
+      : null,
+    crewAverage: crew.length
+      ? Math.round(crew.reduce((sum, r) => sum + r.total, 0) / crew.length)
+      : null,
+    crewSize: crew.length,
+  }
+}
+
 export type MeUser = {
   displayName: string
   position: string
@@ -205,6 +277,9 @@ export type MeResponse = {
   achievements: ProfileAchievement[]
   recentSessions: Omit<ProfileSession, 'decisions'>[]
   growth: GrowthZones | null
+  readiness: PromotionReadiness
+  /** Null when the viewer is missing from the board handed in. */
+  standing: Standing | null
 }
 
 export function profileFor(
@@ -212,6 +287,7 @@ export function profileFor(
   sessions: readonly ProfileSession[],
   earned: readonly EarnedAchievement[],
   catalogue: readonly ScenarioListItem[] = [],
+  standing: Standing | null = null,
 ): MeResponse {
   // Best score per scenario, the same rule the leaderboard and the seed use: a replay raises your
   // total, it does not add to it.
@@ -246,5 +322,10 @@ export function profileFor(
     // Already newest-first from the query. The decisions stay server-side: nothing renders them.
     recentSessions: sessions.map(({ decisions: _, ...s }) => s),
     growth: growthZones(sessions, competencies, catalogue),
+    readiness: promotionReadiness(
+      Object.fromEntries(competencies.map((c) => [c.key, c.points])) as Record<Competency, number>,
+      Math.max(0, ...sessions.filter((s) => s.category === 'service').map((s) => s.score)),
+    ),
+    standing,
   }
 }

@@ -8,6 +8,8 @@ import {
   type MeUser,
   type ProfileSession,
   profileFor,
+  promotionReadiness,
+  standingFor,
 } from './profile'
 import { COMPETENCIES } from './schema'
 
@@ -201,4 +203,57 @@ test('the recommendation is an unplayed scenario in the weakest category first',
 test('no runs, no growth zones; decisions never reach the wire', () => {
   expect(profileFor(USER, [], []).growth).toBeNull()
   expect(profileFor(USER, [run()], []).recentSessions[0]).not.toHaveProperty('decisions')
+})
+
+test('readiness needs all three floors and a successful service run', () => {
+  const points = { conflict: 2, medical: 0, safety: 0, service: 4, communication: 2 }
+  expect(promotionReadiness(points, 100)).toMatchObject({ ready: true, percent: 100 })
+  const short = promotionReadiness({ ...points, service: 2 }, 60)
+  expect(short.ready).toBe(false)
+  // service 2/4 = .5, serviceBest 60/100 = .6, the other two met: (0.5 + 1 + 1 + 0.6) / 4.
+  expect(short.percent).toBe(78)
+  expect(short.criteria.filter((c) => !c.met).map((c) => c.key)).toEqual(['service', 'serviceBest'])
+})
+
+test('profile readiness reads the best score from service scenarios only', () => {
+  const p = profileFor(
+    USER,
+    [
+      run({ category: 'service', score: 104, competencyDeltas: { service: 4, conflict: 2 } }),
+      run({ category: 'medical', score: 130, competencyDeltas: { communication: 2 } }),
+    ],
+    [],
+  )
+  expect(p.readiness.ready).toBe(true)
+  expect(p.readiness.criteria.find((c) => c.key === 'serviceBest')?.value).toBe(104)
+  expect(p.standing).toBeNull()
+})
+
+test('standing: percentile against the company, average against the crew', () => {
+  const row = (userId: string, crew: string, total: number, depot = 'Москва') => ({
+    userId,
+    depot,
+    crew,
+    total,
+  })
+  const rows = [
+    row('me', 'Бригада № 1', 300),
+    row('a', 'Бригада № 1', 100),
+    row('b', 'Бригада № 2', 500),
+    row('c', 'Бригада № 2', 300),
+    row('d', 'Бригада № 1', 0, 'Санкт-Петербург'),
+  ]
+  expect(standingFor('me', rows)).toEqual({
+    total: 300,
+    percentile: 50, // a and d are below; the tie with c does not count
+    crewAverage: 200,
+    crewSize: 2,
+  })
+  expect(standingFor('ghost', rows)).toBeNull()
+  expect(standingFor('me', [row('me', '', 10)])).toEqual({
+    total: 10,
+    percentile: null,
+    crewAverage: null,
+    crewSize: 0,
+  })
 })

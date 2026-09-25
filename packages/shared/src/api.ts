@@ -5,7 +5,7 @@ import { z } from 'zod'
 import type { AchievementCode } from './achievements'
 import type { ClientNode, MeterKey, Meters } from './engine'
 import type { ScenarioGraph } from './graph'
-import type { LevelKey } from './profile'
+import type { LevelKey, PromotionReadiness } from './profile'
 import type { Competency, Effects, Outcome } from './schema'
 import type { score } from './score'
 
@@ -204,6 +204,8 @@ export type AdminAnalyticsResponse = {
   weakest: Competency | null
   /** Most timeouts plus fails first. Nodes with neither are left out. */
   nodes: AnalyticsNode[]
+  /** Everyone in the filter, most ready first: the promotion column HR reads. */
+  readiness: { id: string; name: string; crew: string; ready: boolean; percent: number }[]
 }
 
 /**
@@ -228,6 +230,8 @@ export type IntegrationEmployee = {
   runs: number
   /** ISO 8601; null until the first finished run. */
   lastRunAt: string | null
+  /** «Готовность к бизнес/первому классу», the same object the profile shows. */
+  readiness: PromotionReadiness
 }
 
 export type IntegrationProgressResponse = {

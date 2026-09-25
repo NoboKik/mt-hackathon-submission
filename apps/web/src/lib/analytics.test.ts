@@ -1,4 +1,4 @@
-import type { Scenario } from '@p400/shared'
+import type { IntegrationEmployee, Scenario } from '@p400/shared'
 import { expect, test } from 'vitest'
 import { type AnalyticsRun, crewAnalytics } from './analytics'
 
@@ -61,7 +61,15 @@ test('company-wide: per-conductor averages, the weakest axis, problem nodes rank
 })
 
 test('crew filter needs the depot too: same crew name elsewhere stays out', () => {
-  const r = crewAnalytics(users, runs, scenarios, MSK, 'Бригада № 3')
+  const hr = (id: string, percent: number) =>
+    ({
+      id,
+      name: id,
+      crew: '',
+      readiness: { ready: false, percent, criteria: [] },
+    }) as unknown as IntegrationEmployee
+  const r = crewAnalytics(users, runs, scenarios, MSK, 'Бригада № 3', [hr('u1', 40), hr('u3', 90)])
+  expect(r.readiness).toEqual([{ id: 'u1', name: 'u1', crew: '', ready: false, percent: 40 }])
   expect(r.conductors).toBe(1)
   expect(r.runs).toBe(2)
   expect(r.nodes.map((n) => n.nodeId)).toEqual(['n2'])

@@ -183,6 +183,15 @@ paths:
                   offExpert: [{ category: medical, percent: 67, decisions: 3 }]
                   topMistake: { scenarioTitle: Пассажиру плохо в вагоне бизнес-класса, text: 'Принести сладкий чай и понаблюдать, никого не вызывая', count: 2 }
                   recommended: { id: medical-allergy-01, title: Аллергическая реакция после обеда }
+                readiness:
+                  ready: false
+                  percent: 88
+                  criteria:
+                    - { key: service, value: 2, target: 4, met: false }
+                    - { key: conflict, value: 6, target: 2, met: true }
+                    - { key: communication, value: 7, target: 2, met: true }
+                    - { key: serviceBest, value: 107, target: 100, met: true }
+                standing: { total: 420, percentile: 64, crewAverage: 310, crewSize: 6 }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /api/scenarios:
@@ -530,6 +539,8 @@ paths:
                 weakest: medical
                 nodes:
                   - { scenarioId: medical-faint-01, scenarioTitle: Пассажиру плохо в вагоне бизнес-класса, nodeId: n2, text: 'Пассажирка в сознании, но отвечает вяло…', visits: 9, timeouts: 2, fails: 3 }
+                readiness:
+                  - { id: 5a2b9e4c-0f1d-4c3b-8e7a-6d5f4c3b2a19, name: Анна Смирнова, crew: Бригада № 3, ready: true, percent: 100 }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
@@ -539,7 +550,7 @@ paths:
       summary: Прогресс сотрудников для HR и LMS
       description: |
         Одна строка на сотрудника: внутренний id, ФИО, депо, бригада, XP, ранг, баллы компетенций,
-        достижения, число прохождений и дата последнего. Email и другие контакты не выгружаются.
+        достижения, число прохождений, дата последнего и готовность к бизнес/первому классу. Email и другие контакты не выгружаются.
         Маршрут выключен (404), пока на сервере не задан `INTEGRATION_TOKEN`.
       security:
         - bearerAuth: []
@@ -562,6 +573,14 @@ paths:
                     badges: [first-run, diplomat]
                     runs: 4
                     lastRunAt: '2026-09-24T09:12:03.000Z'
+                    readiness:
+                      ready: false
+                      percent: 88
+                      criteria:
+                        - { key: service, value: 2, target: 4, met: false }
+                        - { key: conflict, value: 6, target: 2, met: true }
+                        - { key: communication, value: 7, target: 2, met: true }
+                        - { key: serviceBest, value: 107, target: 100, met: true }
         '401':
           description: Нет заголовка `Authorization` или токен неверный
           content:
@@ -907,7 +926,7 @@ components:
 
     MeResponse:
       type: object
-      required: [user, xp, level, levelMinXp, nextLevelXp, scenariosFinished, attempts, competencies, achievements, recentSessions, growth]
+      required: [user, xp, level, levelMinXp, nextLevelXp, scenariosFinished, attempts, competencies, achievements, recentSessions, growth, readiness, standing]
       properties:
         user:
           type: object
@@ -993,6 +1012,37 @@ components:
                   properties:
                     id: { type: string }
                     title: { type: string }
+        readiness: { $ref: '#/components/schemas/PromotionReadiness' }
+        standing:
+          description: Место в компании по сумме лучших результатов в курируемых сценариях (как в рейтинге)
+          type: [object, 'null']
+          required: [total, percentile, crewAverage, crewSize]
+          properties:
+            total: { type: integer }
+            percentile: { type: [integer, 'null'], description: '«Лучше N % проводников»: доля остальных с меньшей суммой; null, если сравнить не с кем' }
+            crewAverage: { type: [integer, 'null'], description: Средняя сумма по своей бригаде, включая себя; null без бригады }
+            crewSize: { type: integer }
+
+    PromotionReadiness:
+      description: |
+        «Готовность к бизнес/первому классу»: пороги по компетенциям service, conflict и
+        communication плюс лучший результат в сценарии категории service (успех — от 100).
+        `percent` — средний прогресс по критериям, каждый не больше 100 %.
+      type: object
+      required: [ready, percent, criteria]
+      properties:
+        ready: { type: boolean }
+        percent: { type: integer, minimum: 0, maximum: 100 }
+        criteria:
+          type: array
+          items:
+            type: object
+            required: [key, value, target, met]
+            properties:
+              key: { type: string, enum: [service, conflict, communication, serviceBest] }
+              value: { type: integer }
+              target: { type: integer }
+              met: { type: boolean }
 
     LeaderboardRow:
       type: object
@@ -1109,7 +1159,7 @@ components:
 
     AdminAnalyticsResponse:
       type: object
-      required: [depot, crew, units, conductors, runs, competencies, weakest, nodes]
+      required: [depot, crew, units, conductors, runs, competencies, weakest, nodes, readiness]
       properties:
         depot: { type: [string, 'null'] }
         crew: { type: [string, 'null'] }
@@ -1148,6 +1198,18 @@ components:
               visits: { type: integer }
               timeouts: { type: integer }
               fails: { type: integer }
+        readiness:
+          description: Готовность к бизнес/первому классу по каждому сотруднику в фильтре, самые готовые первыми
+          type: array
+          items:
+            type: object
+            required: [id, name, crew, ready, percent]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              crew: { type: string }
+              ready: { type: boolean }
+              percent: { type: integer, minimum: 0, maximum: 100 }
 
     IntegrationProgressResponse:
       type: object
@@ -1158,7 +1220,7 @@ components:
           type: array
           items:
             type: object
-            required: [id, name, depot, crew, xp, rank, competencies, badges, runs, lastRunAt]
+            required: [id, name, depot, crew, xp, rank, competencies, badges, runs, lastRunAt, readiness]
             properties:
               id: { type: string, format: uuid, description: Внутренний id; сопоставляется с кадровой системой один раз }
               name: { type: string }

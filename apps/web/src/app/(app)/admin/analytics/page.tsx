@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Card, Eyebrow, fieldClass, SectionTitle, Stat } from '@/components/ui'
+import { Card, Chip, Eyebrow, fieldClass, SectionTitle, Stat } from '@/components/ui'
 import { ru } from '@/i18n/ru'
 import { ApiError, api } from '@/lib/client'
 import { cn } from '@/lib/utils'
@@ -215,6 +215,39 @@ export default function AnalyticsPage() {
               </ul>
             ) : (
               <p className="px-4 pb-5 text-sm text-muted-foreground sm:px-5">{t.noNodes}</p>
+            )}
+          </Card>
+
+          <Card pad="none" className="overflow-hidden">
+            <div className="flex flex-col gap-2 p-4 sm:p-5">
+              <SectionTitle>{t.readiness}</SectionTitle>
+              <p className="text-xs text-muted-foreground">{t.readinessHint}</p>
+              {d.readiness.length > 0 && (
+                <p className="text-sm">
+                  {t.readinessSummary(
+                    d.readiness.filter((p) => p.ready).length,
+                    d.readiness.length,
+                  )}
+                </p>
+              )}
+            </div>
+            {d.readiness.length > 0 ? (
+              <ul className="divide-y divide-border border-t border-border">
+                {d.readiness.map((p) => (
+                  <li key={p.id} className="flex items-center gap-3 px-4 py-3 sm:px-5">
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-sm">{p.name}</span>
+                      {p.crew && <span className="text-xs text-muted-foreground">{p.crew}</span>}
+                    </span>
+                    {p.ready && <Chip tone="safe">{t.ready}</Chip>}
+                    <span className="w-12 text-right text-sm font-semibold tabular-nums">
+                      {`${p.percent}\u00a0%`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="px-4 pb-5 text-sm text-muted-foreground sm:px-5">{t.noPeople}</p>
             )}
           </Card>
         </>

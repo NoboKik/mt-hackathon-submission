@@ -1,6 +1,12 @@
-import { type MeResponse, profileFor } from '@p400/shared'
+import { type MeResponse, profileFor, standingFor } from '@p400/shared'
 import { NextResponse } from 'next/server'
-import { earnedAchievements, profileSessions, scenarioList, userProfile } from '@/db/queries'
+import {
+  earnedAchievements,
+  leaderboardTotals,
+  profileSessions,
+  scenarioList,
+  userProfile,
+} from '@/db/queries'
 import { fail } from '@/lib/api'
 import { currentUserId } from '@/lib/auth'
 
@@ -14,12 +20,20 @@ export async function GET() {
   if (!user) return fail(401, 'unauthorized')
 
   // The catalogue is what the growth zones pick a recommended scenario from.
-  const [sessions, earned, catalogue] = await Promise.all([
+  // The standing reads the leaderboard's cached all-time board: the same total the rating shows.
+  const [sessions, earned, catalogue, board] = await Promise.all([
     profileSessions(userId),
     earnedAchievements(userId),
     scenarioList(userId),
+    leaderboardTotals('all'),
   ])
   // Typed, so a change to the aggregator's shape breaks the build rather than the profile screen.
-  const res: MeResponse = profileFor(user, sessions, earned, catalogue)
+  const res: MeResponse = profileFor(
+    user,
+    sessions,
+    earned,
+    catalogue,
+    standingFor(userId, board.rows),
+  )
   return NextResponse.json(res)
 }

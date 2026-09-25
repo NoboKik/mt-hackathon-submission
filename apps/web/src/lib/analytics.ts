@@ -8,6 +8,7 @@ import {
   type AnalyticsNode,
   COMPETENCIES,
   type Competency,
+  type IntegrationEmployee,
   type Outcome,
   type Scenario,
 } from '@p400/shared'
@@ -29,6 +30,8 @@ export function crewAnalytics(
   scenarios: ReadonlyMap<string, { title: string; json: Scenario }>,
   depot: string | null,
   crew: string | null,
+  // The HR export's rows, so the readiness column is the number HR and the profile see.
+  employees: readonly IntegrationEmployee[] = [],
 ): AdminAnalyticsResponse {
   const byDepot = new Map<string, Set<string>>()
   for (const u of users) {
@@ -106,5 +109,10 @@ export function crewAnalytics(
           (b.timeouts + b.fails) / b.visits - (a.timeouts + a.fails) / a.visits,
       )
       .slice(0, TOP_NODES),
+    readiness: employees
+      .filter((e) => inScope.has(e.id))
+      .map((e) => ({ id: e.id, name: e.name, crew: e.crew, ...e.readiness }))
+      .map(({ criteria: _, ...row }) => row)
+      .sort((a, b) => b.percent - a.percent || a.name.localeCompare(b.name)),
   }
 }
