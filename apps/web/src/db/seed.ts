@@ -1,4 +1,4 @@
-// Seed for the demo: one mid-table demo user, 30 colleagues and the sessions they played.
+// Seed for the demo: one mid-table demo user, 35 colleagues in four crews and the sessions they played.
 // Idempotent — two runs give the same row counts and the same generated users, sessions and
 // scores. Only row uuids, password hashes and session timestamps differ: those hang off
 // randomness or "now".
@@ -79,25 +79,15 @@ const translit = (s: string) => [...s.toLowerCase()].map((c) => LAT[CYR.indexOf(
 const emailFor = (first: string, last: string) =>
   `${translit(first)}.${translit(last)}@provodnik400.ru`
 
-const POSITIONS = [
-  ['Проводник', 70],
-  ['Старший проводник', 20],
-  ['Начальник поезда', 10],
+// A ВСМ crew: one начальник поезда and eight проводников, one per car. Four crews, two per end
+// of the line; the demo user's «Бригада № 3» comes first and she holds one of its cars.
+const CREWS = [
+  ['Депо Москва-Октябрьская', 'Бригада № 3'],
+  ['Депо Москва-Октябрьская', 'Бригада № 7'],
+  ['Депо Санкт-Петербург-Московский', 'Бригада № 1'],
+  ['Депо Санкт-Петербург-Московский', 'Бригада № 4'],
 ] as const
-
-const DEPOTS = [
-  ['Депо Москва-Октябрьская', 45],
-  ['Депо Санкт-Петербург-Московский', 45],
-  ['Депо Тверь', 10],
-] as const
-
-// Бригады per depot, handed out round-robin in generation order: no rnd() draws, so adding them
-// reshuffled nobody. The demo user's «Бригада № 3» comes first in Москва-Октябрьская.
-const CREWS: Record<(typeof DEPOTS)[number][0], string[]> = {
-  'Депо Москва-Октябрьская': ['Бригада № 3', 'Бригада № 7'],
-  'Депо Санкт-Петербург-Московский': ['Бригада № 1', 'Бригада № 4'],
-  'Депо Тверь': ['Бригада № 2'],
-}
+const CARS = 8
 
 const OUTCOMES = [
   ['success', 55],
@@ -244,26 +234,27 @@ export function generateSeedData(list: Scenario[], passwordHash: string, now = D
   const crew: (NewUser & { id: string })[] = []
   // Block the demo user's own name as well, so the leaderboard has exactly one Анна Соколова.
   const taken = new Set([DEMO.email, emailFor('Анна', 'Соколова')])
-  while (crew.length < 30) {
-    const female = rnd() < 0.5
-    const first = pick(rnd, female ? FEMALE_FIRST : MALE_FIRST)
-    const last = `${pick(rnd, SURNAMES)}${female ? 'а' : ''}`
-    const email = emailFor(first, last)
-    if (taken.has(email)) continue
-    taken.add(email)
-    // Position before depot: the order the draws have always had.
-    const position = weighted(rnd, POSITIONS)
-    const depot = weighted(rnd, DEPOTS)
-    const inDepot = crew.filter((u) => u.depot === depot).length + (depot === DEMO.depot ? 1 : 0)
-    crew.push({
-      id: randomUUID(),
-      email,
-      passwordHash,
-      displayName: `${first} ${last}`,
-      position,
-      depot,
-      crew: CREWS[depot][inDepot % CREWS[depot].length],
-    })
+  for (const [depot, crewName] of CREWS) {
+    // Slot 0 is the начальник поезда, 1..8 the car conductors; the demo user takes one car.
+    const slots = CARS + 1 - (crewName === DEMO.crew ? 1 : 0)
+    for (let slot = 0; slot < slots; ) {
+      const female = rnd() < 0.5
+      const first = pick(rnd, female ? FEMALE_FIRST : MALE_FIRST)
+      const last = `${pick(rnd, SURNAMES)}${female ? 'а' : ''}`
+      const email = emailFor(first, last)
+      if (taken.has(email)) continue
+      taken.add(email)
+      crew.push({
+        id: randomUUID(),
+        email,
+        passwordHash,
+        displayName: `${first} ${last}`,
+        position: slot === 0 ? 'Начальник поезда' : 'Проводник',
+        depot,
+        crew: crewName,
+      })
+      slot++
+    }
   }
 
   const played: Played[] = []
@@ -317,7 +308,7 @@ async function main() {
     }
   }
   // One throwaway password for every seeded account: nobody signs in with a password. The demo
-  // user gets in through POST /api/auth/demo, the other 30 are leaderboard colleagues.
+  // user gets in through POST /api/auth/demo, the other 35 are leaderboard colleagues.
   const data = people
     ? generateSeedData(list, hashPassword(randomBytes(24).toString('base64url')))
     : null

@@ -21,11 +21,11 @@ test('two runs generate the same crew, sessions and scores', () => {
   expect(stable(run())).toEqual(stable(run()))
 })
 
-test('one demo user, 30 conductors, no duplicate emails', () => {
+test('one demo user, 35 colleagues, no duplicate emails', () => {
   const { users } = run()
-  expect(users).toHaveLength(31)
+  expect(users).toHaveLength(36)
   expect(users[0].email).toBe('demo@provodnik400.ru')
-  expect(new Set(users.map((u) => u.email)).size).toBe(31)
+  expect(new Set(users.map((u) => u.email)).size).toBe(36)
 })
 
 test('every session is finished, scored and inside the last 21 days', () => {
@@ -61,7 +61,7 @@ test('the demo user sits mid-table, so a live run visibly moves her up', () => {
 
 test('no scenario files still seeds the crew', () => {
   const empty = generateSeedData([], 'scrypt$c2FsdA==$aGFzaA==', NOW)
-  expect(empty.users).toHaveLength(31)
+  expect(empty.users).toHaveLength(36)
   expect(empty.sessions).toEqual([])
   expect(empty.unlocks).toEqual([])
 })
@@ -98,4 +98,17 @@ test('everyone has a crew, and the demo user has crewmates to rank against', () 
   const demo = users[0]
   const mates = users.filter((u) => u.depot === demo.depot && u.crew === demo.crew)
   expect(mates.length).toBeGreaterThanOrEqual(5)
+})
+
+test('every crew is one начальник поезда and eight проводников', () => {
+  const byCrew = new Map<string, string[]>()
+  for (const u of run().users) {
+    const key = `${u.depot}|${u.crew}`
+    byCrew.set(key, [...(byCrew.get(key) ?? []), u.position ?? ''])
+  }
+  expect(byCrew.size).toBe(4)
+  for (const positions of byCrew.values()) {
+    expect(positions.filter((p) => p === 'Начальник поезда')).toHaveLength(1)
+    expect(positions.filter((p) => p === 'Проводник')).toHaveLength(8)
+  }
 })
