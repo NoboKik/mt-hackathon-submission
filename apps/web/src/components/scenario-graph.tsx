@@ -12,7 +12,8 @@ import { cn } from '@/lib/utils'
 // library would be 40 KB to place twelve boxes. Swap it in if scenarios ever get dragged around.
 const BOX_W = 210
 const BOX_H = 78
-const GAP_X = 70
+// Wide enough for most of a v1.1 branch condition, drawn in this gap before its target.
+const GAP_X = 100
 const GAP_Y = 26
 /** Breathing room around the drawing, so a 2px start border is not clipped by the viewBox. */
 const PAD = 10
@@ -79,6 +80,11 @@ function nodeStroke(node: GraphNode) {
   if (node.type === 'end' && node.outcome) return OUTCOME_COLOR[node.outcome]
   return 'var(--border)'
 }
+
+/** SVG text never clips, so a branch label keeps this many characters; <title> has the rest. */
+const EDGE_LABEL_CHARS = 22
+const clip = (text: string) =>
+  text.length > EDGE_LABEL_CHARS ? `${text.slice(0, EDGE_LABEL_CHARS - 1).trimEnd()}…` : text
 
 const LINE_CHARS = 26
 const MAX_LINES = 2
@@ -204,6 +210,12 @@ export function ScenarioGraph({ scenarioId }: { scenarioId: string }) {
             </svg>
             {ru.admin.timeoutEdge}
           </Chip>
+          <Chip>
+            <svg aria-hidden="true" className="h-0.5 w-4" viewBox="0 0 16 2">
+              <line x1="0" y1="1" x2="16" y2="1" stroke="currentColor" strokeWidth="2" />
+            </svg>
+            {ru.admin.branchEdge}
+          </Chip>
         </div>
 
         {/* Wide content scrolls in its own container; the page never scrolls sideways.
@@ -255,16 +267,22 @@ export function ScenarioGraph({ scenarioId }: { scenarioId: string }) {
                 const x2 = to.x
                 const y2 = to.y + BOX_H / 2
                 const mid = (x1 + x2) / 2
+                const isBranch = Boolean(edge.condition || edge.isFallback)
                 return (
                   <path
                     key={edge.id}
                     d={`M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`}
                     fill="none"
-                    stroke={edge.isTimeout ? 'var(--danger)' : 'var(--muted-foreground)'}
-                    // Edges recede on white: what read as a hairline on dark navy reads as a
-                    // cable on paper, so they lose a quarter pixel and half their opacity.
+                    stroke={
+                      edge.isTimeout
+                        ? 'var(--danger)'
+                        : isBranch
+                          ? 'var(--foreground)'
+                          : 'var(--muted-foreground)'
+                    }
+                    // Edges recede so the boxes lead. A branch edge stays darker: its condition is the thing to read.
                     strokeWidth={1.25}
-                    strokeOpacity={edge.isTimeout ? 0.85 : 0.5}
+                    strokeOpacity={edge.isTimeout ? 0.85 : isBranch ? 0.7 : 0.5}
                     strokeDasharray={edge.isTimeout ? '5 4' : undefined}
                     markerEnd={`url(#p400-edge-arrow${edge.isTimeout ? '-timeout' : ''})`}
                   >
@@ -310,6 +328,32 @@ export function ScenarioGraph({ scenarioId }: { scenarioId: string }) {
                   ))}
                 </g>
               ))}
+              {/* After the boxes, so nothing covers them. Every edge arrives flat at the left of
+               * its target's midline, so the label sits just above the arrowhead, in the gap
+               * before the target. The halo in the canvas colour keeps it legible over lines.
+               * NOTE: two labelled edges into one target overlap; split the target if that
+               * ever happens. */}
+              {graph.edges.map((edge) => {
+                const to = at.get(edge.target)
+                if (!to || !edge.label || !(edge.condition || edge.isFallback)) return null
+                return (
+                  <text
+                    key={edge.id}
+                    x={to.x - 8}
+                    y={to.y + BOX_H / 2 - 5}
+                    textAnchor="end"
+                    fill="var(--foreground)"
+                    stroke="var(--muted)"
+                    strokeWidth={3}
+                    paintOrder="stroke"
+                    fontSize={9.5}
+                    fontWeight={600}
+                  >
+                    {clip(edge.label)}
+                    <title>{edge.label}</title>
+                  </text>
+                )
+              })}
             </svg>
           </div>
         </div>

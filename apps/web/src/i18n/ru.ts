@@ -129,6 +129,12 @@ export const ru = {
   },
   admin: {
     timeoutEdge: 'Таймаут',
+    // v1.1 conditional branches: the label parts, joined into «лояльность < 40 и выбрано «…»».
+    branchEdge: 'Условие',
+    fallbackEdge: 'иначе',
+    branchMeter: { loyalty: 'лояльность', safety: 'безопасность' },
+    branchChose: 'выбрано',
+    branchAnd: ' и ',
     title: 'Граф сценария',
     subtitle: 'Методистский вид: все ветки, эффекты и компетенции.',
     nodes: 'Узлы',

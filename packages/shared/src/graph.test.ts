@@ -158,3 +158,17 @@ test('long labels break on a word boundary, space-less ones just get cut', () =>
   // Short enough to fit is left exactly as written.
   expect(label('Коротко')).toBe('Коротко')
 })
+
+test('v1.1 branches become condition edges ahead of a flagged fallback', () => {
+  const s = structuredClone(tiny) as Scenario
+  Object.assign(s.nodes.n2 ?? {}, {
+    branches: [{ if: { loyalty: { lt: 40 } }, next: 'n1' }],
+  })
+  const fromN2 = scenarioGraph(s).edges.filter((e) => e.source === 'n2')
+  expect(fromN2.map((e) => [e.id, e.target, e.condition, e.isFallback])).toEqual([
+    ['n2:b:0', 'n1', { loyalty: { lt: 40 } }, undefined],
+    ['n2:next', 'end_good', undefined, true],
+  ])
+  // Without branches the plain next edge carries neither key.
+  expect(Object.keys(scenarioGraph(tiny).edges.at(-1) ?? {})).not.toContain('isFallback')
+})

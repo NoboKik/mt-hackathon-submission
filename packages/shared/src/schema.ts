@@ -38,10 +38,27 @@ const ChoiceNode = z.strictObject({
   choices: z.array(Choice).min(2).max(4),
 })
 
+// v1.1: a range on one meter. `lt` is exclusive, `gte` inclusive, so `{lt: 40}` and `{gte: 40}`
+// split the meter with nothing left over.
+const Range = z
+  .strictObject({ lt: meter.optional(), gte: meter.optional() })
+  .refine((r) => r.lt !== undefined || r.gte !== undefined, 'needs lt or gte')
+
+/** Every key given must hold. `chose` is a choice id picked earlier in this run. */
+export const Condition = z
+  .strictObject({ loyalty: Range.optional(), safety: Range.optional(), chose: text.optional() })
+  .refine((c) => Object.keys(c).length > 0, 'empty condition always matches: use next instead')
+export type Condition = z.infer<typeof Condition>
+
 const ConsequenceNode = z.strictObject({
   type: z.literal('consequence'),
   text,
   effects: Effects,
+  // v1.1, optional: the first branch whose condition holds wins, else `next`.
+  branches: z
+    .array(z.strictObject({ if: Condition, next: text }))
+    .min(1)
+    .optional(),
   next: text,
 })
 

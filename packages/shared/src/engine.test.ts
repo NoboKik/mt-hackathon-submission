@@ -7,6 +7,7 @@ import {
   debriefSteps,
   EngineError,
   enter,
+  nextOf,
   shuffled,
   THRESHOLD_END_ID,
   toClientNode,
@@ -183,4 +184,79 @@ test('debriefSteps replays the path: per-step deltas, consequences and the exper
     expertChoice: { id: 'c7', text: s.nodes.n3.choices[0]?.text },
   })
   expect(() => debriefSteps(s, [{ nodeId: 'n1', choiceId: 'gone' }], [])).toThrow(EngineError)
+})
+
+// v1.1: c1 → n1b, which sends a safe cabin straight to n3; c4 → n2b, which ends early if c3
+// was picked at n1.
+function branching(): Scenario {
+  const b = structuredClone(s) as Scenario
+  b.nodes.n1b = {
+    type: 'consequence',
+    text: 'Пассажир приходит в себя.',
+    effects: { loyalty: 0, safety: 0 },
+    branches: [{ if: { safety: { gte: 80 } }, next: 'n3' }],
+    next: 'n2',
+  }
+  b.nodes.n2b = {
+    type: 'consequence',
+    text: 'Начальник поезда уже в курсе.',
+    effects: { loyalty: 0, safety: 0 },
+    branches: [{ if: { chose: 'c3' }, next: 'end_partial' }],
+    next: 'n3',
+  }
+  Object.assign(b.nodes.n1?.type === 'choice' ? (b.nodes.n1.choices[0] ?? {}) : {}, {
+    next: 'n1b',
+  })
+  Object.assign(b.nodes.n2?.type === 'choice' ? (b.nodes.n2.choices[0] ?? {}) : {}, {
+    next: 'n2b',
+  })
+  return b
+}
+
+test('nextOf: first matching branch wins, every key must hold, else next', () => {
+  const node = {
+    type: 'consequence' as const,
+    text: 'т',
+    effects: { loyalty: 0, safety: 0 },
+    branches: [
+      { if: { loyalty: { lt: 40 }, chose: 'c1' }, next: 'a' },
+      { if: { loyalty: { gte: 40, lt: 60 } }, next: 'b' },
+      { if: { safety: { lt: 50 } }, next: 'c' },
+    ],
+    next: 'z',
+  }
+  expect(nextOf(node, { loyalty: 30, safety: 30 }, ['c1'])).toBe('a')
+  // Without c1 the first branch fails and loyalty 30 misses the second: the third catches it.
+  expect(nextOf(node, { loyalty: 30, safety: 30 }, [])).toBe('c')
+  // lt is exclusive, gte inclusive.
+  expect(nextOf(node, { loyalty: 40, safety: 90 }, [])).toBe('b')
+  expect(nextOf(node, { loyalty: 60, safety: 90 }, [])).toBe('z')
+  expect(nextOf({ ...node, branches: undefined }, { loyalty: 0, safety: 0 }, ['c1'])).toBe('z')
+})
+
+test('enter routes on the meters after the node’s own effects', () => {
+  const b = branching()
+  // c1 adds 10 safety: 70 → 80 takes the branch, 65 → 75 falls back.
+  expect(choose(b, 'n1', 'c1', { loyalty: 70, safety: 70 }).node).toMatchObject({ id: 'n3' })
+  expect(choose(b, 'n1', 'c1', { loyalty: 70, safety: 65 }).node).toMatchObject({ id: 'n2' })
+  const own = structuredClone(b)
+  Object.assign(own.nodes.n1b ?? {}, { effects: { loyalty: 0, safety: -5 } })
+  expect(choose(own, 'n1', 'c1', { loyalty: 70, safety: 70 }).node).toMatchObject({ id: 'n2' })
+})
+
+test('chose sees the run’s earlier choices, and the debrief replays the same branch', () => {
+  const b = branching()
+  const m = { loyalty: 70, safety: 70 }
+  expect(choose(b, 'n2', 'c4', m, undefined, ['c3']).node).toMatchObject({ id: 'end_partial' })
+  expect(choose(b, 'n2', 'c4', m, undefined, ['timeout']).node).toMatchObject({ id: 'n3' })
+
+  const steps = debriefSteps(
+    b,
+    [
+      { nodeId: 'n1', choiceId: 'c3' },
+      { nodeId: 'n2', choiceId: 'c4' },
+    ],
+    ['c1', 'c4', 'c7'],
+  )
+  expect(steps.map((st) => st.consequenceText)).toEqual([null, 'Начальник поезда уже в курсе.'])
 })

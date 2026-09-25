@@ -5,7 +5,7 @@
 // that is the whole point of a trainer's view, and it is why the endpoint is not player-safe.
 
 import type { Meters } from './engine'
-import type { Competency, Effects, Node, Outcome, Scenario } from './schema'
+import type { Competency, Condition, Effects, Node, Outcome, Scenario } from './schema'
 
 /** Characters a label keeps before it is cut. Graph boxes are small; the file holds the script. */
 export const GRAPH_LABEL_MAX = 80
@@ -51,6 +51,10 @@ export type GraphEdge = {
   /** The choice's own meter deltas; zero on timeout and consequence edges, whose node carries them. */
   effects: Effects
   competencies: Partial<Record<Competency, number>>
+  /** v1.1 branch edges only: the condition to label it with. */
+  condition?: Condition
+  /** The `next` of a consequence node that has branches: taken when none of them holds. */
+  isFallback?: true
 }
 
 export type ScenarioGraph = {
@@ -109,6 +113,18 @@ export function scenarioGraph(scenario: Scenario): ScenarioGraph {
         break
       case 'consequence':
         nodes.push({ ...common, effects: node.effects })
+        node.branches?.forEach((b, i) => {
+          edges.push({
+            id: `${id}:b:${i}`,
+            source: id,
+            target: b.next,
+            label: null,
+            isTimeout: false,
+            effects: NO_EFFECTS,
+            competencies: {},
+            condition: b.if,
+          })
+        })
         edges.push({
           id: `${id}:next`,
           source: id,
@@ -117,6 +133,7 @@ export function scenarioGraph(scenario: Scenario): ScenarioGraph {
           isTimeout: false,
           effects: NO_EFFECTS,
           competencies: {},
+          ...(node.branches ? { isFallback: true as const } : {}),
         })
         break
       case 'end':

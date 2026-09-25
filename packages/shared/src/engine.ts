@@ -3,7 +3,7 @@
 // outcomes are computed; the client renders what these functions hand back.
 
 import type { DebriefStep } from './api'
-import type { Choice, Effects, Node, Outcome, Scenario } from './schema'
+import type { Choice, Condition, Effects, Node, Outcome, Scenario } from './schema'
 
 export type Meters = { loyalty: number; safety: number }
 export type MeterKey = keyof Meters
@@ -110,6 +110,28 @@ export function toClientNode(scenario: Scenario, id: string, seed?: number): Cli
   }
 }
 
+const holds = (c: Condition, meters: Meters, chosen: readonly string[]) =>
+  (['loyalty', 'safety'] as const).every((m) => {
+    const r = c[m]
+    return (
+      !r ||
+      ((r.lt === undefined || meters[m] < r.lt) && (r.gte === undefined || meters[m] >= r.gte))
+    )
+  }) &&
+  (c.chose === undefined || chosen.includes(c.chose))
+
+/**
+ * Where a consequence node leads: the first branch whose condition holds, else `next`. `meters`
+ * are the ones after the node's own effects — the state the player leaves the node in.
+ */
+export function nextOf(
+  node: Extract<Node, { type: 'consequence' }>,
+  meters: Meters,
+  chosen: readonly string[],
+): string {
+  return node.branches?.find((b) => holds(b.if, meters, chosen))?.next ?? node.next
+}
+
 /** `steps` are the consequence nodes walked through, in order, for the client to show as toasts. */
 export type EnterResult = { steps: ClientNode[]; node: ClientNode; meters: Meters }
 
@@ -118,6 +140,8 @@ export function enter(
   nodeId: string,
   meters: Meters,
   seed?: number,
+  /** Choice ids picked so far this run, for `chose` conditions. Timeouts may be in it; harmless. */
+  chosen: readonly string[] = [],
 ): EnterResult {
   const steps: ClientNode[] = []
   let current = nodeId
@@ -134,7 +158,7 @@ export function enter(
     now = applied(now, node.effects)
     const failed = breached(scenario, now)
     if (failed) return { steps, node: thresholdEnd(failed), meters: now }
-    current = node.next
+    current = nextOf(node, now, chosen)
   }
 }
 
@@ -148,18 +172,20 @@ export function choose(
   choiceId: string,
   meters: Meters,
   seed?: number,
+  /** Choice ids picked before this one; choose() adds `choiceId` itself. */
+  chosen: readonly string[] = [],
 ): ChooseResult {
   const node = nodeAt(scenario, nodeId)
   if (node.type !== 'choice') throw new EngineError(`node "${nodeId}" is not a choice node`)
   // A timeout is a real branch, and it costs nothing by itself: onTimeout carries the damage.
-  if (choiceId === 'timeout') return enter(scenario, node.onTimeout, meters, seed)
+  if (choiceId === 'timeout') return enter(scenario, node.onTimeout, meters, seed, chosen)
 
   const choice = node.choices.find((c) => c.id === choiceId)
   if (!choice) throw new EngineError(`node "${nodeId}" has no choice "${choiceId}"`)
   const next = applied(meters, choice.effects)
   const failed = breached(scenario, next)
   if (failed) return { steps: [], node: thresholdEnd(failed), meters: next, choice }
-  return { ...enter(scenario, choice.next, next, seed), choice }
+  return { ...enter(scenario, choice.next, next, seed, [...chosen, choiceId]), choice }
 }
 
 export function debriefFor(scenario: Scenario, endId: string): Debrief {
@@ -190,11 +216,12 @@ export function debriefSteps(
   expertPath: string[],
 ): DebriefStep[] {
   let meters = enter(scenario, scenario.start, scenario.initial).meters
-  return path.map(({ nodeId, choiceId }) => {
+  return path.map(({ nodeId, choiceId }, i) => {
     const node = nodeAt(scenario, nodeId)
     // choose() below throws for anything but a choice node, so this never falls through.
     const choices = node.type === 'choice' ? node.choices : []
-    const result = choose(scenario, nodeId, choiceId, meters)
+    const chosen = path.slice(0, i).map((p) => p.choiceId)
+    const result = choose(scenario, nodeId, choiceId, meters, undefined, chosen)
     const effects = {
       loyalty: result.meters.loyalty - meters.loyalty,
       safety: result.meters.safety - meters.safety,

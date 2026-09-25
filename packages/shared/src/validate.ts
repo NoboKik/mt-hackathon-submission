@@ -6,7 +6,7 @@ const edges = (node: Node): string[] =>
   node.type === 'choice'
     ? [...node.choices.map((c) => c.next), node.onTimeout]
     : node.type === 'consequence'
-      ? [node.next]
+      ? [...(node.branches ?? []).map((b) => b.next), node.next]
       : []
 
 export function validateScenario(data: unknown, fileId?: string): ValidationResult {
@@ -49,6 +49,14 @@ export function validateScenario(data: unknown, fileId?: string): ValidationResu
     for (const c of node.choices) {
       if (choiceIds.has(c.id)) errors.push(`node "${id}": choice id "${c.id}" is already used`)
       choiceIds.add(c.id)
+    }
+  }
+
+  for (const [id, node] of nodes) {
+    if (node.type !== 'consequence') continue
+    for (const b of node.branches ?? []) {
+      if (b.if.chose !== undefined && !choiceIds.has(b.if.chose))
+        errors.push(`node "${id}": branch condition chose "${b.if.chose}" does not exist`)
     }
   }
 

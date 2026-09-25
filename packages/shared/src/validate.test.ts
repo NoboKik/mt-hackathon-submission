@@ -251,3 +251,54 @@ describe('graph checks', () => {
     expect(errors).toHaveLength(3)
   })
 })
+
+describe('v1.1 conditional branches', () => {
+  // n1_timeout gains a branch: low loyalty goes to n3 instead of n2.
+  const branch = (b: unknown) => (s: Fixture & Loose) => {
+    Object.assign(s.nodes.n1_timeout, { branches: [b] })
+  }
+
+  test('a file without branches is still valid, and one with them validates', () => {
+    expect(errorsAfter(branch({ if: { loyalty: { lt: 40 } }, next: 'n3' }))).toEqual([])
+    expect(errorsAfter(branch({ if: { safety: { gte: 50 }, chose: 'c2' }, next: 'n3' }))).toEqual(
+      [],
+    )
+  })
+
+  test('a branch target counts for missing nodes, reachability and cycles', () => {
+    expectError(
+      errorsAfter(branch({ if: { chose: 'c1' }, next: 'n9' })),
+      'links to missing node "n9"',
+    )
+    expect(
+      errorsAfter((s) => {
+        // `orphan` is reachable only through the branch.
+        s.nodes.orphan = { ...s.nodes.n1_timeout, next: 'end_good' }
+        branch({ if: { loyalty: { lt: 40 } }, next: 'orphan' })(s)
+      }),
+    ).toEqual([])
+    expectError(
+      errorsAfter((s) => {
+        Object.assign(s.nodes.n3.choices[1] ?? {}, { next: 'n1_timeout' })
+        branch({ if: { chose: 'c8' }, next: 'n3' })(s)
+      }),
+      'closes a cycle',
+    )
+  })
+
+  test('rejects a chose that names no choice, and empty conditions', () => {
+    expectError(
+      errorsAfter(branch({ if: { chose: 'c77' }, next: 'n3' })),
+      'branch condition chose "c77" does not exist',
+    )
+    expectError(errorsAfter(branch({ if: {}, next: 'n3' })), 'empty condition')
+    expectError(errorsAfter(branch({ if: { loyalty: {} }, next: 'n3' })), 'needs lt or gte')
+    expectError(errorsAfter(branch({ if: { loyalty: { lt: 140 } }, next: 'n3' })), 'loyalty.lt')
+    expectError(
+      errorsAfter((s) => {
+        Object.assign(s.nodes.n1_timeout, { branches: [] })
+      }),
+      'branches',
+    )
+  })
+})

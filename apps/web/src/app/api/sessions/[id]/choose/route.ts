@@ -56,6 +56,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         safety: session.safety,
       },
       session.seed,
+      session.path.map((step) => step.choiceId),
     )
   } catch (e) {
     // A choice id the node doesn't have: a stale or hand-rolled client, not a server fault.
