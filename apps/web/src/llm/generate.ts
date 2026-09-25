@@ -1,6 +1,6 @@
 // One LLM-drafted scenario: prompt → reply → the same validator curated content passes → retry
 // with the errors. Nothing reaches the pool, or a file, unless validateScenario said ok.
-import { randomBytes, randomUUID } from 'node:crypto'
+import { randomBytes } from 'node:crypto'
 import { type Scenario, validateScenario } from '@p400/shared'
 import { type ChatMessage, complete } from './client'
 import { extractJson } from './json'
@@ -49,11 +49,9 @@ export async function generateScenario(
 ): Promise<Scenario> {
   const id = generatedId(seed)
   const messages: ChatMessage[] = promptMessages(seed, avoid)
-  // One conversation per scenario: opencode go routes and caches by it.
-  const session = randomUUID()
   let errors: string[] = []
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
-    const reply = await llm(messages, { session })
+    const reply = await llm(messages)
     try {
       const result = checkDraft(extractJson(reply), id, seed)
       if (result.ok) return result.scenario

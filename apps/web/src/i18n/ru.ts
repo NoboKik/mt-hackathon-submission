@@ -245,6 +245,7 @@ export const ru = {
     unauthorized: 'Войдите в систему, чтобы продолжить.',
     badRequest: 'Некорректный запрос.',
     badCredentials: 'Неверный email или пароль.',
+    tooManyLogins: 'Слишком много попыток входа. Подождите минуту и попробуйте снова.',
     demoInviteRequired: 'Демо-доступ открывается по ссылке-приглашению.',
     demoUserMissing: 'Демо-доступ на этом сервере не настроен.',
     scenarioNotFound: 'Сценарий не найден.',

@@ -101,3 +101,29 @@ export async function currentUserId(): Promise<string | null> {
   const token = (await cookies()).get(COOKIE)?.value
   return token ? verify(token, Math.floor(Date.now() / 1000)) : null
 }
+
+const LOGIN_LIMIT = 5
+const LOGIN_WINDOW_MS = 60_000
+const loginAttempts = new Map<string, { n: number; resetAt: number }>()
+
+/**
+ * Counts a login attempt for this IP + email; true once it is past 5 in the current minute.
+ * NOTE: an in-process map, so each container keeps its own count (N containers allow 5·N a
+ * minute) and a restart forgets it. Move it to a Postgres table if the app ever runs scaled out.
+ */
+export function loginThrottled(ip: string, email: string, now = Date.now()): boolean {
+  if (loginAttempts.size > 10_000)
+    for (const [k, v] of loginAttempts) if (v.resetAt <= now) loginAttempts.delete(k)
+  const key = `${ip}|${email.toLowerCase()}`
+  const entry = loginAttempts.get(key)
+  if (!entry || entry.resetAt <= now) {
+    loginAttempts.set(key, { n: 1, resetAt: now + LOGIN_WINDOW_MS })
+    return false
+  }
+  return ++entry.n > LOGIN_LIMIT
+}
+
+/** The caller's IP as Caddy saw it: the last X-Forwarded-For hop is the one Caddy appended. */
+export function clientIp(req: Request): string {
+  return req.headers.get('x-forwarded-for')?.split(',').pop()?.trim() || 'unknown'
+}

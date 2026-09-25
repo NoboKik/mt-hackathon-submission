@@ -2,7 +2,15 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { hashPassword, inviteOk, sign, verify, verifyPassword } from './auth'
+import {
+  clientIp,
+  hashPassword,
+  inviteOk,
+  loginThrottled,
+  sign,
+  verify,
+  verifyPassword,
+} from './auth'
 
 // auth.ts reads AUTH_SECRET lazily, so setting it here — after the import, before any test —
 // is enough to keep these assertions off the dev fallback secret.
@@ -121,5 +129,22 @@ describe('secret from AUTH_SECRET_FILE', () => {
       process.env.AUTH_SECRET = envSecret
       delete process.env.AUTH_SECRET_FILE
     }
+  })
+})
+
+describe('login throttle', () => {
+  it('allows 5 attempts a minute per IP + email, then refuses until the window resets', () => {
+    const t = 1_900_000_000_000
+    for (let i = 0; i < 5; i++) expect(loginThrottled('10.0.0.1', 'a@rzd.ru', t)).toBe(false)
+    expect(loginThrottled('10.0.0.1', 'A@rzd.ru', t + 1)).toBe(true)
+    expect(loginThrottled('10.0.0.2', 'a@rzd.ru', t + 1)).toBe(false)
+    expect(loginThrottled('10.0.0.1', 'b@rzd.ru', t + 1)).toBe(false)
+    expect(loginThrottled('10.0.0.1', 'a@rzd.ru', t + 60_000)).toBe(false)
+  })
+
+  it('reads the last X-Forwarded-For hop', () => {
+    const req = (h: Record<string, string>) => new Request('http://x', { headers: h })
+    expect(clientIp(req({ 'x-forwarded-for': '1.1.1.1, 2.2.2.2' }))).toBe('2.2.2.2')
+    expect(clientIp(req({}))).toBe('unknown')
   })
 })

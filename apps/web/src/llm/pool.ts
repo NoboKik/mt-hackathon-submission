@@ -1,5 +1,6 @@
 // Auto mode's pool of generated scenarios. Generation takes 20–60 s, so players are only ever
 // served what is already here; this file refills it in the background.
+import { db } from '@/db'
 import {
   generatedScenarios,
   generatedSince,
@@ -34,32 +35,45 @@ export async function dailyLimitReached() {
 /** How many unplayed scenarios auto mode keeps ready per player. */
 export const POOL_TARGET = 3
 
-// NOTE: single-process guard — fine for one container, a DB advisory lock if we ever run two.
-let generating = false
+/** Any constant works; it only has to be the same in every container. */
+const POOL_LOCK = 400_400
 
 /**
  * Fire-and-forget from POST /api/auto: tops this player's queue back up to POOL_TARGET. Needs a
  * long-lived Node process (ours is `node server.js`); a serverless host would kill it mid-way.
  */
 export async function topUpPool(userId: string, served?: string) {
-  if (generating) return
-  generating = true
   try {
-    llmConfig()
-    // The scenario just handed out has no session yet, but it is not waiting in the queue either.
-    const ready = (await unplayedGenerated(userId)).filter((id) => id !== served)
-    const missing = POOL_TARGET - ready.length
-    for (let i = 0; i < missing; i++) {
-      if (await dailyLimitReached()) {
-        console.warn('auto: LLM_DAILY_LIMIT reached, pool top-up stopped')
-        break
+    // One refill at a time across every container: a session-level Postgres advisory lock on a
+    // reserved connection. If the process dies mid-way, the connection drops and the lock with it.
+    const conn = await db().$client.reserve()
+    try {
+      const [{ locked }] = await conn`select pg_try_advisory_lock(${POOL_LOCK}) as locked`
+      if (!locked) return
+      try {
+        await refill(userId, served)
+      } finally {
+        await conn`select pg_advisory_unlock(${POOL_LOCK})`
       }
-      await topUp(1)
+    } finally {
+      conn.release()
     }
   } catch (e) {
     // No key: nothing to do, and the route has already told the player.
     if (!(e instanceof LlmConfigError)) console.error('auto: pool top-up failed', e)
-  } finally {
-    generating = false
+  }
+}
+
+async function refill(userId: string, served?: string) {
+  llmConfig()
+  // The scenario just handed out has no session yet, but it is not waiting in the queue either.
+  const ready = (await unplayedGenerated(userId)).filter((id) => id !== served)
+  const missing = POOL_TARGET - ready.length
+  for (let i = 0; i < missing; i++) {
+    if (await dailyLimitReached()) {
+      console.warn('auto: LLM_DAILY_LIMIT reached, pool top-up stopped')
+      break
+    }
+    await topUp(1)
   }
 }

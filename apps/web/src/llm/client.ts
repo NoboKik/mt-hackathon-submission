@@ -1,5 +1,5 @@
 // The one LLM call: an OpenAI-compatible /chat/completions POST. Plain fetch, no SDK — switching
-// provider (opencode go → OpenRouter → DeepSeek) is an edit to apps/web/.env, not to code.
+// provider (OpenRouter → DeepSeek's own API) is an edit to apps/web/.env, not to code.
 // Server only (like db/index.ts, `server-only` isn't installed): never import this from a client
 // component — the key must not reach a bundle the browser loads.
 
@@ -17,7 +17,7 @@ export function llmConfig() {
 
 export async function complete(
   messages: ChatMessage[],
-  opts: { timeoutMs?: number; session?: string } = {},
+  opts: { timeoutMs?: number } = {},
 ): Promise<string> {
   const { baseUrl, apiKey, model } = llmConfig()
   const res = await fetch(`${baseUrl}/chat/completions`, {
@@ -25,9 +25,6 @@ export async function complete(
     headers: {
       authorization: `Bearer ${apiKey}`,
       'content-type': 'application/json',
-      // opencode go refuses requests without both; every other provider ignores them.
-      'user-agent': 'provodnik400/0.1',
-      ...(opts.session ? { 'x-opencode-session': opts.session } : {}),
     },
     body: JSON.stringify({
       model,
