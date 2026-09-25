@@ -28,6 +28,22 @@ export const LoginBody = z.object({ email: z.email(), password: z.string().min(1
 export type LoginBody = z.infer<typeof LoginBody>
 
 /**
+ * PUT /integration/users/:employeeId: the HR system registers or updates a conductor. The
+ * password is required to create and optional to update (sent = replaced).
+ */
+export const IntegrationUserBody = z.object({
+  email: z.email(),
+  name: z.string().trim().min(1),
+  depot: z.string().trim().min(1),
+  crew: z.string().trim().default(''),
+  position: z.string().trim().min(1).default('Проводник'),
+  password: z.string().min(8).optional(),
+})
+export type IntegrationUserBody = z.infer<typeof IntegrationUserBody>
+
+export type IntegrationUserResponse = { id: string; employeeId: string; created: boolean }
+
+/**
  * GET /admin/scenarios/:id/graph. The whole branch graph with effects and competencies on it —
  * a trainer's view, deliberately not player-safe the way ClientNode is.
  */

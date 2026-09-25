@@ -332,5 +332,7 @@ export const ru = {
     sessionNotFinished: 'Сценарий ещё не завершён.',
     debriefUnavailable: 'Разбор для этой сессии недоступен.',
     integrationOff: 'Интеграционный API на этом сервере выключен.',
+    passwordRequired: 'Для нового сотрудника нужен начальный пароль.',
+    emailTaken: 'Этот email уже занят другим сотрудником.',
   },
 } as const

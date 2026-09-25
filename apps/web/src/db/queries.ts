@@ -12,7 +12,7 @@ import type {
   ProfileSession,
 } from '@p400/shared'
 import { decisionsOf, Scenario, type ScenarioListItem, THRESHOLD_END_ID } from '@p400/shared'
-import { and, desc, eq, isNotNull, isNull, notExists, sql } from 'drizzle-orm'
+import { and, desc, eq, isNotNull, isNull, notExists, or, sql } from 'drizzle-orm'
 import { expertPathTaken } from '@/lib/api'
 import { db } from './index'
 import { type NewGameSession, scenarios, sessions, userAchievements, users } from './schema'
@@ -490,5 +490,56 @@ export async function integrationInput() {
       r.score !== null && r.finishedAt ? [{ ...r, score: r.score, finishedAt: r.finishedAt }] : [],
     ),
     badges,
+  }
+}
+
+type IntegrationUserFields = {
+  email: string
+  displayName: string
+  depot: string
+  crew: string
+  position: string
+}
+
+/**
+ * PUT /integration/users/:employeeId. Matches on the табельный номер first, then adopts an account
+ * with the same email that pnpm user:add made before HR knew about it. `passwordHash` undefined
+ * keeps the current password on update and refuses to create.
+ */
+export async function putIntegrationUser(
+  employeeId: string,
+  fields: IntegrationUserFields,
+  passwordHash: string | undefined,
+): Promise<{ id: string; created: boolean } | 'passwordRequired' | 'emailTaken'> {
+  const values = { ...fields, employeeId, ...(passwordHash && { passwordHash }) }
+  try {
+    const found = await db()
+      .select({ id: users.id })
+      .from(users)
+      .where(
+        or(
+          eq(users.employeeId, employeeId),
+          and(eq(users.email, fields.email), isNull(users.employeeId)),
+        ),
+      )
+      .orderBy(sql`${users.employeeId} is null`) // the employeeId match wins
+      .limit(1)
+    const id = found.at(0)?.id
+    if (id) {
+      await db().update(users).set(values).where(eq(users.id, id))
+      return { id, created: false }
+    }
+    if (!passwordHash) return 'passwordRequired'
+    const [row] = await db()
+      .insert(users)
+      .values({ ...values, passwordHash })
+      .returning({ id: users.id })
+    // biome-ignore lint/style/noNonNullAssertion: an insert without a conflict returns its row
+    return { id: row!.id, created: true }
+  } catch (e) {
+    // NOTE: any unique violation reads as the email; two concurrent PUTs for one new
+    // employeeId would say emailTaken too. The retry succeeds, so no lock.
+    if ((e as { cause?: { code?: string } }).cause?.code === '23505') return 'emailTaken'
+    throw e
   }
 }

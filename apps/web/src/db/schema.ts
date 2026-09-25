@@ -25,6 +25,9 @@ export const users = pgTable('users', {
   depot: text('depot').notNull(),
   // Бригада within the depot; '' = not assigned yet (pnpm user:add without --crew).
   crew: text('crew').notNull().default(''),
+  // Табельный номер from the HR system (PUT /api/integration/users/:employeeId); null = made by
+  // pnpm user:add or the seed.
+  employeeId: text('employee_id').unique(),
   avatar: text('avatar'),
   // When the bell was last opened. The feed itself is derived at read time (notificationsFor);
   // this one timestamp is its whole read state. Null = never opened.

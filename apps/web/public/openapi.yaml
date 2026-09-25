@@ -575,6 +575,76 @@ paths:
               schema: { $ref: '#/components/schemas/Error' }
               example: { error: integrationOff }
 
+  /api/integration/users/{employeeId}:
+    put:
+      tags: [integration]
+      summary: Создать или обновить сотрудника (из HR-системы)
+      description: |
+        HR-система регистрирует проводников сама — в тренажёре нет саморегистрации. Сотрудник
+        ищется по табельному номеру; если его нет, но есть учётная запись с тем же email без
+        табельного номера (создана `pnpm user:add`), она привязывается. Пароль обязателен при
+        создании; при обновлении — только если его нужно сменить. Повторный вызов с теми же
+        данными ничего не меняет.
+        Маршрут выключен (404), пока на сервере не задан `INTEGRATION_TOKEN`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: employeeId
+          in: path
+          required: true
+          description: Табельный номер — латиница, цифры, `_`, `.`, `-`, до 64 символов
+          schema: { type: string, pattern: '^[\w.-]{1,64}$' }
+          example: '004512'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IntegrationUserBody' }
+            example:
+              email: a.smirnova@vsm400.ru
+              name: Анна Смирнова
+              depot: Депо Москва-Октябрьская
+              crew: Бригада № 3
+              position: Проводник
+              password: 'Vsm-400-start'
+      responses:
+        '200':
+          description: Сотрудник обновлён
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IntegrationUserResponse' }
+              example: { id: 5a2b9e4c-0f1d-4c3b-8e7a-6d5f4c3b2a19, employeeId: '004512', created: false }
+        '201':
+          description: Сотрудник создан
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IntegrationUserResponse' }
+              example: { id: 5a2b9e4c-0f1d-4c3b-8e7a-6d5f4c3b2a19, employeeId: '004512', created: true }
+        '400':
+          description: Невалидное тело или табельный номер (`badRequest`), либо новый сотрудник без пароля (`passwordRequired`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: passwordRequired }
+        '401':
+          description: Нет заголовка `Authorization` или токен неверный
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: unauthorized }
+        '404':
+          description: Интеграция выключена — `INTEGRATION_TOKEN` не задан
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: integrationOff }
+        '409':
+          description: Email уже принадлежит другому сотруднику
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: emailTaken }
+
 components:
   securitySchemes:
     cookieAuth:
@@ -648,6 +718,8 @@ components:
             - llmNotConfigured
             - llmDailyLimit
             - integrationOff
+            - passwordRequired
+            - emailTaken
         issues:
           type: array
           description: Только на 400 из-за валидации — массив ошибок Zod
@@ -1106,3 +1178,25 @@ components:
               badges: { type: array, items: { $ref: '#/components/schemas/AchievementCode' } }
               runs: { type: integer }
               lastRunAt: { type: [string, 'null'], format: date-time }
+              readiness: { $ref: '#/components/schemas/PromotionReadiness' }
+
+    IntegrationUserBody:
+      type: object
+      required: [email, name, depot]
+      properties:
+        email: { type: string, format: email, description: Логин для входа }
+        name: { type: string, minLength: 1, description: Имя и фамилия }
+        depot: { type: string, minLength: 1 }
+        crew: { type: string, default: '', description: Пустая строка — бригада не назначена }
+        position: { type: string, minLength: 1, default: Проводник }
+        password:
+          type: string
+          minLength: 8
+          description: Начальный пароль. Обязателен при создании; при обновлении — меняет пароль
+    IntegrationUserResponse:
+      type: object
+      required: [id, employeeId, created]
+      properties:
+        id: { type: string, format: uuid, description: Внутренний id — тот же, что в выгрузке прогресса }
+        employeeId: { type: string }
+        created: { type: boolean, description: true — создан (201), false — обновлён (200) }

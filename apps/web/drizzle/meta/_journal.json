@@ -36,6 +36,13 @@
       "when": 1790344933763,
       "tag": "0004_notifications_seen",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790354649759,
+      "tag": "0005_user_employee_id",
+      "breakpoints": true
     }
   ]
 }
