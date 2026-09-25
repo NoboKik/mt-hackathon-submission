@@ -460,3 +460,35 @@ export async function analyticsInput() {
     ),
   }
 }
+
+/** Everyone, their finished runs and their badges: the HR/LMS export's raw rows. No emails. */
+export async function integrationInput() {
+  const [people, runs, badges] = await Promise.all([
+    db()
+      .select({ id: users.id, name: users.displayName, depot: users.depot, crew: users.crew })
+      .from(users)
+      .orderBy(users.depot, users.crew, users.displayName),
+    db()
+      .select({
+        userId: sessions.userId,
+        scenarioId: sessions.scenarioId,
+        score: sessions.score,
+        competencyDeltas: sessions.competencyDeltas,
+        finishedAt: sessions.finishedAt,
+      })
+      .from(sessions)
+      .where(isNotNull(sessions.finishedAt)),
+    db()
+      .select({ userId: userAchievements.userId, code: userAchievements.code })
+      .from(userAchievements)
+      .orderBy(userAchievements.earnedAt),
+  ])
+  return {
+    users: people,
+    // Finished runs always carry a score and a date; the flatMap only convinces the type of it.
+    runs: runs.flatMap((r) =>
+      r.score !== null && r.finishedAt ? [{ ...r, score: r.score, finishedAt: r.finishedAt }] : [],
+    ),
+    badges,
+  }
+}

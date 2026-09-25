@@ -64,6 +64,8 @@ services:
       LLM_DAILY_LIMIT: ${LLM_DAILY_LIMIT:-}
       # The demo login's invite code (/login?invite=…). Empty: the demo door is open.
       DEMO_INVITE: ${DEMO_INVITE:-}
+      # Bearer token for the HR/LMS export, /api/integration/progress. Empty: the route is off.
+      INTEGRATION_TOKEN: ${INTEGRATION_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy

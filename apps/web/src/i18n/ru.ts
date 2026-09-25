@@ -331,5 +331,6 @@ export const ru = {
     staleStep: 'Этот шаг уже сделан. Обновите страницу.',
     sessionNotFinished: 'Сценарий ещё не завершён.',
     debriefUnavailable: 'Разбор для этой сессии недоступен.',
+    integrationOff: 'Интеграционный API на этом сервере выключен.',
   },
 } as const

@@ -1,0 +1,1108 @@
+openapi: 3.1.0
+info:
+  title: Проводник 400 API
+  version: 1.0.0
+  description: |
+    REST API тренажёра «Проводник 400». Веб-клиент ходит только сюда (`apps/web/src/lib/client.ts`),
+    ни одна страница не обращается к базе напрямую. Игровая логика, шкалы, очки и достижения
+    считаются только на сервере.
+
+    **Аутентификация.** Игровые маршруты — cookie `p400_session` (HttpOnly, подписана HMAC), её
+    ставят `POST /api/auth/login` и `POST /api/auth/demo`. Интеграционный маршрут для HR/LMS —
+    `Authorization: Bearer <INTEGRATION_TOKEN>`, без cookie.
+
+    **Ошибки.** Любой ответ с кодом 4xx/5xx имеет вид `{ "error": "<код>" }`. Код — машиночитаемый,
+    русский текст для него подставляет клиент. Ответ 400 из-за невалидного тела или query
+    дополнительно содержит `issues` — массив ошибок Zod для разработчика.
+
+    Руководство для интеграции: `docs/API.md` в репозитории.
+servers:
+  - url: /
+tags:
+  - name: auth
+    description: Вход и выход
+  - name: game
+    description: Каталог, прохождение сценария, разбор
+  - name: profile
+    description: Профиль, рейтинг, уведомления
+  - name: admin
+    description: Инструменты методиста и аналитика бригад
+  - name: integration
+    description: Выгрузка для HR и LMS (Bearer-токен)
+  - name: ops
+    description: Служебное
+
+security:
+  - cookieAuth: []
+
+paths:
+  /api/health:
+    get:
+      tags: [ops]
+      summary: Проверка живости (healthcheck контейнера)
+      security: []
+      responses:
+        '200':
+          description: Сервис отвечает
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Ok' }
+
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: Вход по email и паролю
+      description: Ставит cookie `p400_session` на 30 дней. Не больше 5 попыток в минуту на пару IP + email.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 1 }
+            example: { email: a.smirnova@vsm400.ru, password: 'correct horse battery staple' }
+      responses:
+        '200':
+          description: Вход выполнен, cookie установлена
+          headers:
+            Set-Cookie: { schema: { type: string }, description: 'p400_session=…; HttpOnly; SameSite=Lax' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Ok' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401':
+          description: Неверный email или пароль — один ответ на оба случая, email не перебрать
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: badCredentials }
+        '429':
+          description: Больше 5 попыток за минуту
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: tooManyLogins }
+
+  /api/auth/demo:
+    post:
+      tags: [auth]
+      summary: Вход под демо-проводником
+      description: |
+        Если на сервере задан `DEMO_INVITE`, нужен код приглашения — в теле или в запомненной cookie
+        `p400_invite`. Тело необязательно.
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                invite: { type: string }
+            example: { invite: 3f9a1c7e5b2d4a60 }
+      responses:
+        '200':
+          description: Вход выполнен, cookie установлена
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Ok' }
+        '403':
+          description: Нужен код приглашения
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: demoInviteRequired }
+        '404':
+          description: Демо-пользователь не создан (`SEED_DEMO=0`)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: demoUserMissing }
+
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      summary: Выход
+      security: []
+      responses:
+        '200':
+          description: Cookie сессии удалена
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Ok' }
+
+  /api/me:
+    get:
+      tags: [profile]
+      summary: Профиль игрока
+      description: XP, ранг, пять компетенций, достижения, история прохождений и «Зоны роста».
+      responses:
+        '200':
+          description: Профиль
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MeResponse' }
+              example:
+                user: { displayName: Анна Смирнова, position: Проводник, depot: Депо Москва-Октябрьская, avatar: null }
+                xp: 420
+                level: conductor
+                levelMinXp: 300
+                nextLevelXp: 800
+                scenariosFinished: 3
+                attempts: 4
+                competencies:
+                  - { key: conflict, raw: 6, points: 6, level: trainee }
+                  - { key: medical, raw: -1, points: 0, level: trainee }
+                  - { key: safety, raw: 4, points: 4, level: trainee }
+                  - { key: service, raw: 2, points: 2, level: trainee }
+                  - { key: communication, raw: 7, points: 7, level: trainee }
+                achievements:
+                  - { code: first-run, earnedAt: '2026-09-24T09:12:03.000Z' }
+                  - { code: cool-head, earnedAt: null }
+                recentSessions:
+                  - id: 4b0f6c1e-7d7a-4f55-9a31-0d2f7e3c9a10
+                    scenarioId: conflict-drunk-01
+                    title: Нетрезвый пассажир мешает соседям
+                    category: conflict
+                    difficulty: 2
+                    outcome: success
+                    score: 146
+                    loyalty: 75
+                    safety: 90
+                    finishedAt: '2026-09-24T09:12:03.000Z'
+                    competencyDeltas: { conflict: 3, communication: 2, safety: 3 }
+                    onExpertPath: true
+                growth:
+                  weakest: { key: medical, points: 0, othersAverage: 5 }
+                  decisions: 11
+                  timeoutPercent: 9
+                  offExpert: [{ category: medical, percent: 67, decisions: 3 }]
+                  topMistake: { scenarioTitle: Пассажиру плохо в вагоне бизнес-класса, text: 'Принести сладкий чай и понаблюдать, никого не вызывая', count: 2 }
+                  recommended: { id: medical-allergy-01, title: Аллергическая реакция после обеда }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/scenarios:
+    get:
+      tags: [game]
+      summary: Каталог сценариев
+      responses:
+        '200':
+          description: Сценарии с лучшим результатом игрока
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ScenarioListItem' }
+              example:
+                - { id: conflict-drunk-01, title: Нетрезвый пассажир мешает соседям, category: conflict, difficulty: 2, estimatedMinutes: 5, bestScore: 146, attempts: 2 }
+                - { id: medical-faint-01, title: Пассажиру плохо в вагоне бизнес-класса, category: medical, difficulty: 2, estimatedMinutes: 5, bestScore: null, attempts: 0 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/sessions:
+    post:
+      tags: [game]
+      summary: Начать сценарий
+      description: |
+        Создаёт сессию со своим `seed` (порядок вариантов ответа) и возвращает первый узел. Таймер
+        узла запускается в момент ответа — сервер сам сверяет время.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scenarioId]
+              properties:
+                scenarioId: { type: string, minLength: 1 }
+            example: { scenarioId: medical-faint-01 }
+      responses:
+        '200':
+          description: Сессия создана
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StartSessionResponse' }
+              example:
+                sessionId: 9d3c2b8a-51e4-4f0a-8c7e-2a6b1f4d0e93
+                seed: 1183424077
+                scenario:
+                  id: medical-faint-01
+                  title: Пассажиру плохо в вагоне бизнес-класса
+                  intro: Рейс ВСМ Москва — Санкт-Петербург, вагон бизнес-класса, кресла 2+2. …
+                  source: curated
+                  status: approved
+                steps: []
+                node:
+                  type: choice
+                  id: n1
+                  speaker: narrator
+                  text: Женщина у окна побледнела и медленно сползает по креслу. Сосед машет вам рукой.
+                  timerSec: 15
+                  choices:
+                    - { id: c2, text: 'Сразу отправить соседа за начальником поезда, не осматривая пассажирку' }
+                    - { id: c1, text: 'Подойти: «Я рядом, я проводник. Как вы себя чувствуете?» — и проверить сознание' }
+                    - { id: c3, text: 'Соседям: «Не волнуйтесь, её просто укачало», и оставить как есть' }
+                meters: { loyalty: 70, safety: 70 }
+                failThresholds: { loyalty: 20, safety: 20 }
+                finished: false
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/ScenarioNotFound' }
+
+  /api/sessions/{id}/choose:
+    post:
+      tags: [game]
+      summary: Сделать выбор (или сообщить об истечении таймера)
+      description: |
+        Сервер проверяет, что `nodeId` — текущий узел сессии, сверяет время по своим часам (таймер
+        узла + 2 с на сеть; позже — это таймаут, что бы ни прислал клиент), применяет эффекты,
+        проверяет пороги шкал, а на последнем шаге считает очки и выдаёт достижения.
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nodeId, choiceId, elapsedMs]
+              properties:
+                nodeId: { type: string, minLength: 1 }
+                choiceId: { type: string, minLength: 1, description: 'id варианта или `timeout`' }
+                elapsedMs: { type: integer, minimum: 0, description: Время на решение по часам клиента }
+            example: { nodeId: n1, choiceId: c1, elapsedMs: 6400 }
+      responses:
+        '200':
+          description: Следующий узел и шкалы
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChooseResponse' }
+              example:
+                steps: []
+                node:
+                  type: choice
+                  id: n2
+                  speaker: narrator
+                  text: Пассажирка в сознании, но отвечает вяло, на лбу холодный пот. «С утра ничего не ела… душно».
+                  timerSec: 15
+                  choices:
+                    - { id: c4, text: 'Уложить в кресле, не поднимать и по рации сообщить начальнику поезда о её состоянии' }
+                    - { id: c6, text: 'Принести сладкий чай и понаблюдать, никого не вызывая' }
+                meters: { loyalty: 75, safety: 80 }
+                failThresholds: { loyalty: 20, safety: 20 }
+                deltas: { loyalty: 5, safety: 10 }
+                timedOut: false
+                finished: false
+                achievements: []
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/SessionNotFound' }
+        '409':
+          description: Шаг уже сделан, узел устарел или сессия завершена
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: staleStep }
+
+  /api/sessions/{id}/debrief:
+    get:
+      tags: [game]
+      summary: Разбор завершённого сценария
+      description: По каждому решению — что изменилось на шкалах, какое последствие наступило и как поступил бы эксперт.
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Разбор
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DebriefResponse' }
+              example:
+                outcome: partial
+                meters: { loyalty: 70, safety: 85 }
+                score: { base: 60, timeBonus: 10, competencyBonus: 4, total: 74 }
+                competencyDeltas: { medical: 3, communication: 1, service: 1 }
+                lesson: О плохом самочувствии пассажира сообщают начальнику поезда всегда, даже если ему стало лучше. …
+                regulation: Регламент организации обслуживания пассажиров высокоскоростного поезда «Сапсан» …, п. 3.11.2 …
+                yourPath:
+                  - nodeId: n1
+                    nodeText: Женщина у окна побледнела и медленно сползает по креслу. Сосед машет вам рукой.
+                    choiceId: c1
+                    choiceText: 'Подойти: «Я рядом, я проводник. Как вы себя чувствуете?» — и проверить сознание'
+                    onExpertPath: true
+                    effects: { loyalty: 5, safety: 10 }
+                    competencies: { medical: 2, communication: 1 }
+                    consequenceText: null
+                  - nodeId: n2
+                    nodeText: Пассажирка в сознании, но отвечает вяло…
+                    choiceId: c6
+                    choiceText: Принести сладкий чай и понаблюдать, никого не вызывая
+                    onExpertPath: false
+                    effects: { loyalty: 10, safety: -5 }
+                    competencies: { service: 1, medical: -1 }
+                    consequenceText: null
+                    expertChoice: { id: c4, text: 'Уложить в кресле, не поднимать и по рации сообщить начальнику поезда о её состоянии' }
+                expertPath:
+                  - { choiceId: c1, text: 'Подойти: «Я рядом, я проводник…» — и проверить сознание' }
+                  - { choiceId: c4, text: 'Уложить в кресле, не поднимать и по рации сообщить начальнику поезда' }
+                  - { choiceId: c7, text: '«Пожалуйста, вернитесь на места и освободите проход: помощь уже идёт»' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/SessionNotFound' }
+        '409':
+          description: Сценарий ещё идёт, или разбор для этой сессии недоступен
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: sessionNotFinished }
+
+  /api/leaderboard:
+    get:
+      tags: [profile]
+      summary: Таблица лидеров
+      description: Сумма лучших результатов по сценариям. Кэш 30 с, сбрасывается после каждого завершённого прохождения.
+      parameters:
+        - name: scope
+          in: query
+          schema: { type: string, enum: [crew, depot, company], default: crew }
+          description: Бригада и депо — всегда свои; `company` — вся компания
+        - name: period
+          in: query
+          schema: { type: string, enum: [week, all], default: all }
+        - name: depot
+          in: query
+          schema: { type: string, minLength: 1 }
+          description: Фильтр по депо, только для `scope=company`
+      responses:
+        '200':
+          description: Топ и строка игрока
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LeaderboardResponse' }
+              example:
+                scope: crew
+                period: all
+                depot: null
+                depots: [Депо Москва-Октябрьская, Депо Санкт-Петербург-Московский]
+                updatedAt: '2026-09-25T10:00:00.000Z'
+                top:
+                  - { userId: 1c7e2f0a-9b3d-4e6f-a1c2-7d8e9f0a1b2c, displayName: Мария Козлова, position: Старший проводник, depot: Депо Москва-Октябрьская, crew: Бригада № 3, avatar: null, total: 812, scenarios: 7, rank: 1 }
+                me: { userId: 5a2b9e4c-0f1d-4c3b-8e7a-6d5f4c3b2a19, displayName: Анна Смирнова, position: Проводник, depot: Депо Москва-Октябрьская, crew: Бригада № 3, avatar: null, total: 420, scenarios: 3, rank: 4 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/notifications:
+    get:
+      tags: [profile]
+      summary: Уведомления, сценарий дня и серия
+      description: Всё вычисляется в момент запроса, очереди нет. Время в МСК.
+      responses:
+        '200':
+          description: Лента колокольчика
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationsResponse' }
+              example:
+                daily: { scenarioId: safety-bag-01, title: Бесхозная сумка в тамбуре, category: safety, estimatedMinutes: 6, done: false }
+                streak: { days: 3, atRisk: true }
+                unread: 2
+                items:
+                  - { kind: streak, days: 3, at: '2026-09-25T07:00:00.000Z', read: false }
+                  - { kind: weekly, scenarioId: safety-bag-01, title: Бесхозная сумка в тамбуре, days: 2, at: '2026-09-25T07:00:00.000Z', read: false }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/notifications/read:
+    post:
+      tags: [profile]
+      summary: Отметить уведомления прочитанными
+      responses:
+        '200':
+          description: Всё, что было до этого момента, прочитано
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Ok' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/auto:
+    post:
+      tags: [game]
+      summary: Следующий сценарий автоматического режима
+      description: |
+        Отдаёт самый старый сгенерированный сценарий, который игрок ещё не начинал, и в фоне
+        пополняет пул (LLM). На клик сценарий не генерируется.
+      responses:
+        '200':
+          description: Сценарий из пула
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [scenarioId]
+                properties:
+                  scenarioId: { type: string }
+              example: { scenarioId: gen-medical-7f3a2c }
+        '202':
+          description: Пул пуст, сценарий генерируется — повторить запрос позже
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, const: generating }
+              example: { status: generating }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503':
+          description: Модель не настроена или дневной лимит генераций исчерпан
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: llmDailyLimit }
+
+  /api/admin/scenarios/{id}/graph:
+    get:
+      tags: [admin]
+      summary: Граф сценария для методиста
+      description: Все узлы и переходы с эффектами и компетенциями — в отличие от игровых ответов, раскрывает ветвление целиком.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+          example: medical-faint-01
+      responses:
+        '200':
+          description: Узлы и рёбра
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ScenarioGraph' }
+              example:
+                id: medical-faint-01
+                title: Пассажиру плохо в вагоне бизнес-класса
+                category: medical
+                difficulty: 2
+                intro: Рейс ВСМ Москва — Санкт-Петербург…
+                start: n1
+                initial: { loyalty: 70, safety: 70 }
+                failThresholds: { loyalty: 20, safety: 20 }
+                nodes:
+                  - { id: n1, type: choice, isStart: true, text: Женщина у окна побледнела…, speaker: narrator, timerSec: 15 }
+                  - { id: n3_loud, type: consequence, isStart: false, text: По вагону проходит волна…, effects: { loyalty: -15, safety: 0 } }
+                edges:
+                  - { id: 'n1:c:c1', source: n1, target: n2, label: 'Подойти: «Я рядом, я проводник…»', isTimeout: false, effects: { loyalty: 5, safety: 10 }, competencies: { medical: 2, communication: 1 } }
+                  - { id: 'n3_loud:b:0', source: n3_loud, target: n_panic, label: Лояльность < 40, isTimeout: false, effects: { loyalty: 0, safety: 0 }, competencies: {}, condition: { loyalty: { lt: 40 } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/ScenarioNotFound' }
+
+  /api/admin/analytics:
+    get:
+      tags: [admin]
+      summary: Аналитика бригады, депо или компании
+      description: По завершённым прохождениям курируемых сценариев. Без фильтра — вся компания.
+      parameters:
+        - name: depot
+          in: query
+          schema: { type: string, minLength: 1 }
+        - name: crew
+          in: query
+          schema: { type: string, minLength: 1 }
+          description: Требует `depot` — номера бригад повторяются в разных депо
+      responses:
+        '200':
+          description: Средние баллы компетенций и узлы, где ошибаются чаще всего
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminAnalyticsResponse' }
+              example:
+                depot: Депо Москва-Октябрьская
+                crew: Бригада № 3
+                units: [{ depot: Депо Москва-Октябрьская, crews: [Бригада № 3, Бригада № 7] }]
+                conductors: 6
+                runs: 41
+                competencies:
+                  - { key: conflict, avg: 14.5 }
+                  - { key: medical, avg: 6.2 }
+                  - { key: safety, avg: 11 }
+                  - { key: service, avg: 9.8 }
+                  - { key: communication, avg: 12.3 }
+                weakest: medical
+                nodes:
+                  - { scenarioId: medical-faint-01, scenarioTitle: Пассажиру плохо в вагоне бизнес-класса, nodeId: n2, text: 'Пассажирка в сознании, но отвечает вяло…', visits: 9, timeouts: 2, fails: 3 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/integration/progress:
+    get:
+      tags: [integration]
+      summary: Прогресс сотрудников для HR и LMS
+      description: |
+        Одна строка на сотрудника: внутренний id, ФИО, депо, бригада, XP, ранг, баллы компетенций,
+        достижения, число прохождений и дата последнего. Email и другие контакты не выгружаются.
+        Маршрут выключен (404), пока на сервере не задан `INTEGRATION_TOKEN`.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Выгрузка
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IntegrationProgressResponse' }
+              example:
+                generatedAt: '2026-09-25T12:00:00.000Z'
+                employees:
+                  - id: 5a2b9e4c-0f1d-4c3b-8e7a-6d5f4c3b2a19
+                    name: Анна Смирнова
+                    depot: Депо Москва-Октябрьская
+                    crew: Бригада № 3
+                    xp: 420
+                    rank: conductor
+                    competencies: { conflict: 6, medical: 0, safety: 4, service: 2, communication: 7 }
+                    badges: [first-run, diplomat]
+                    runs: 4
+                    lastRunAt: '2026-09-24T09:12:03.000Z'
+        '401':
+          description: Нет заголовка `Authorization` или токен неверный
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: unauthorized }
+        '404':
+          description: Интеграция выключена — `INTEGRATION_TOKEN` не задан
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: integrationOff }
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: p400_session
+      description: Ставится при входе. В Swagger UI на том же домене браузер отправляет её сам.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Значение `INTEGRATION_TOKEN` из окружения сервера
+
+  parameters:
+    SessionId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    BadRequest:
+      description: Невалидное тело или query; `issues` — ошибки Zod
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: badRequest, issues: [{ code: invalid_type, path: [elapsedMs], message: 'Invalid input: expected number, received undefined' }] }
+    Unauthorized:
+      description: Нет сессии, или она просрочена, или пользователя больше нет
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: unauthorized }
+    ScenarioNotFound:
+      description: Сценарий не найден
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: scenarioNotFound }
+    SessionNotFound:
+      description: Сессии нет или она принадлежит другому игроку
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: sessionNotFound }
+
+  schemas:
+    Ok:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean, const: true }
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          enum:
+            - unauthorized
+            - badRequest
+            - badCredentials
+            - tooManyLogins
+            - demoInviteRequired
+            - demoUserMissing
+            - scenarioNotFound
+            - sessionNotFound
+            - staleStep
+            - sessionNotFinished
+            - debriefUnavailable
+            - llmNotConfigured
+            - llmDailyLimit
+            - integrationOff
+        issues:
+          type: array
+          description: Только на 400 из-за валидации — массив ошибок Zod
+          items: { type: object }
+
+    Competency:
+      type: string
+      enum: [conflict, medical, safety, service, communication]
+    CompetencyDeltas:
+      type: object
+      description: Изменение баллов по компетенциям; отсутствующий ключ — 0
+      properties:
+        conflict: { type: integer }
+        medical: { type: integer }
+        safety: { type: integer }
+        service: { type: integer }
+        communication: { type: integer }
+    LevelKey:
+      type: string
+      enum: [trainee, conductor, senior, mentor]
+      description: Стажёр → Проводник → Старший → Наставник
+    Outcome:
+      type: string
+      enum: [success, partial, fail]
+    AchievementCode:
+      type: string
+      enum: [first-run, cool-head, first-aid, diplomat, night-shift, flawless, balance, steady, full-route, honour-student]
+    Meters:
+      type: object
+      required: [loyalty, safety]
+      properties:
+        loyalty: { type: integer, minimum: 0, maximum: 100, description: Лояльность пассажира }
+        safety: { type: integer, minimum: 0, maximum: 100, description: Рейтинг безопасности }
+    Effects:
+      type: object
+      required: [loyalty, safety]
+      description: Изменение шкал (дельта)
+      properties:
+        loyalty: { type: integer }
+        safety: { type: integer }
+    ScoreBreakdown:
+      type: object
+      required: [base, timeBonus, competencyBonus, total]
+      properties:
+        base: { type: integer, description: 100 × множитель исхода (1.0 / 0.6 / 0.2) }
+        timeBonus: { type: integer, description: Бонус за быстрые решения }
+        competencyBonus: { type: integer, description: Сумма изменений компетенций }
+        total: { type: integer, minimum: 0 }
+
+    ClientNode:
+      description: Узел глазами игрока — без переходов, эффектов вариантов и разбора
+      oneOf:
+        - type: object
+          required: [type, id, speaker, text, timerSec, choices]
+          properties:
+            type: { const: choice }
+            id: { type: string }
+            speaker: { type: string }
+            text: { type: string }
+            image: { type: string }
+            timerSec: { type: integer, minimum: 10, maximum: 20 }
+            choices:
+              type: array
+              minItems: 2
+              maxItems: 4
+              items:
+                type: object
+                required: [id, text]
+                properties:
+                  id: { type: string }
+                  text: { type: string }
+        - type: object
+          required: [type, id, text, effects]
+          properties:
+            type: { const: consequence }
+            id: { type: string }
+            text: { type: string }
+            effects: { $ref: '#/components/schemas/Effects' }
+        - type: object
+          required: [type, id, outcome, text]
+          properties:
+            type: { const: end }
+            id: { type: string, description: '`__threshold`, если сценарий оборвала шкала ниже порога' }
+            outcome: { $ref: '#/components/schemas/Outcome' }
+            text: { type: string }
+            failedMeter: { type: string, enum: [loyalty, safety] }
+
+    ScenarioListItem:
+      type: object
+      required: [id, title, category, difficulty, estimatedMinutes, bestScore, attempts]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        category: { $ref: '#/components/schemas/Competency' }
+        difficulty: { type: integer }
+        estimatedMinutes: { type: integer }
+        bestScore: { type: [integer, 'null'], description: null до первого завершения }
+        attempts: { type: integer }
+
+    StartSessionResponse:
+      type: object
+      required: [sessionId, seed, scenario, steps, node, meters, failThresholds, finished]
+      properties:
+        sessionId: { type: string, format: uuid }
+        seed: { type: integer, description: Зерно перемешивания вариантов; тот же seed — тот же порядок }
+        scenario:
+          type: object
+          required: [id, title, intro, source, status]
+          properties:
+            id: { type: string }
+            title: { type: string }
+            intro: { type: string }
+            source: { type: string, enum: [curated, generated] }
+            status: { type: string, enum: [approved, draft] }
+        steps:
+          type: array
+          description: Узлы-последствия, пройденные автоматически до текущего
+          items: { $ref: '#/components/schemas/ClientNode' }
+        node: { $ref: '#/components/schemas/ClientNode' }
+        meters: { $ref: '#/components/schemas/Meters' }
+        failThresholds: { $ref: '#/components/schemas/Meters' }
+        finished: { type: boolean }
+
+    ChooseResponse:
+      type: object
+      required: [steps, node, meters, failThresholds, deltas, timedOut, finished, achievements]
+      properties:
+        steps:
+          type: array
+          items: { $ref: '#/components/schemas/ClientNode' }
+        node: { $ref: '#/components/schemas/ClientNode' }
+        meters: { $ref: '#/components/schemas/Meters' }
+        failThresholds: { $ref: '#/components/schemas/Meters' }
+        deltas: { $ref: '#/components/schemas/Effects' }
+        timedOut: { type: boolean, description: 'true и тогда, когда выбор пришёл позже таймера + 2 с' }
+        finished: { type: boolean }
+        score: { $ref: '#/components/schemas/ScoreBreakdown' }
+        achievements:
+          type: array
+          description: Только что полученные достижения
+          items: { $ref: '#/components/schemas/AchievementCode' }
+
+    DebriefStep:
+      type: object
+      required: [nodeId, nodeText, choiceId, choiceText, onExpertPath, effects, competencies, consequenceText]
+      properties:
+        nodeId: { type: string }
+        nodeText: { type: string }
+        choiceId: { type: string, description: 'id варианта или `timeout`' }
+        choiceText: { type: [string, 'null'] }
+        onExpertPath: { type: boolean }
+        effects: { $ref: '#/components/schemas/Effects' }
+        competencies: { $ref: '#/components/schemas/CompetencyDeltas' }
+        consequenceText: { type: [string, 'null'] }
+        expertChoice:
+          type: object
+          description: Как поступил бы эксперт в этом узле
+          required: [id, text]
+          properties:
+            id: { type: string }
+            text: { type: string }
+
+    DebriefResponse:
+      type: object
+      required: [outcome, meters, score, competencyDeltas, lesson, regulation, yourPath, expertPath]
+      properties:
+        outcome: { $ref: '#/components/schemas/Outcome' }
+        failedMeter: { type: string, enum: [loyalty, safety] }
+        meters: { $ref: '#/components/schemas/Meters' }
+        score: { $ref: '#/components/schemas/ScoreBreakdown' }
+        competencyDeltas: { $ref: '#/components/schemas/CompetencyDeltas' }
+        lesson: { type: string }
+        regulation: { type: string }
+        yourPath:
+          type: array
+          items: { $ref: '#/components/schemas/DebriefStep' }
+        expertPath:
+          type: array
+          items:
+            type: object
+            required: [choiceId, text]
+            properties:
+              choiceId: { type: string }
+              text: { type: string }
+
+    MeResponse:
+      type: object
+      required: [user, xp, level, levelMinXp, nextLevelXp, scenariosFinished, attempts, competencies, achievements, recentSessions, growth]
+      properties:
+        user:
+          type: object
+          required: [displayName, position, depot, avatar]
+          properties:
+            displayName: { type: string }
+            position: { type: string }
+            depot: { type: string }
+            avatar: { type: [string, 'null'] }
+        xp: { type: integer, description: Сумма лучших результатов по сценариям }
+        level: { $ref: '#/components/schemas/LevelKey' }
+        levelMinXp: { type: integer }
+        nextLevelXp: { type: [integer, 'null'] }
+        scenariosFinished: { type: integer }
+        attempts: { type: integer }
+        competencies:
+          type: array
+          items:
+            type: object
+            required: [key, raw, points, level]
+            properties:
+              key: { $ref: '#/components/schemas/Competency' }
+              raw: { type: integer, description: Может быть отрицательным }
+              points: { type: integer, minimum: 0 }
+              level: { $ref: '#/components/schemas/LevelKey' }
+        achievements:
+          type: array
+          items:
+            type: object
+            required: [code, earnedAt]
+            properties:
+              code: { $ref: '#/components/schemas/AchievementCode' }
+              earnedAt: { type: [string, 'null'], format: date-time }
+        recentSessions:
+          type: array
+          items:
+            type: object
+            required: [id, scenarioId, title, category, difficulty, outcome, score, loyalty, safety, finishedAt, competencyDeltas, onExpertPath]
+            properties:
+              id: { type: string, format: uuid }
+              scenarioId: { type: string }
+              title: { type: string }
+              category: { $ref: '#/components/schemas/Competency' }
+              difficulty: { type: integer }
+              outcome: { $ref: '#/components/schemas/Outcome' }
+              score: { type: integer }
+              loyalty: { type: integer }
+              safety: { type: integer }
+              finishedAt: { type: string, format: date-time }
+              competencyDeltas: { $ref: '#/components/schemas/CompetencyDeltas' }
+              onExpertPath: { type: boolean }
+        growth:
+          description: «Зоны роста»; null, пока нет ни одного завершённого прохождения
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [weakest, decisions, timeoutPercent, offExpert, topMistake, recommended]
+              properties:
+                weakest:
+                  type: object
+                  properties:
+                    key: { $ref: '#/components/schemas/Competency' }
+                    points: { type: integer }
+                    othersAverage: { type: integer }
+                decisions: { type: integer }
+                timeoutPercent: { type: integer }
+                offExpert:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      category: { $ref: '#/components/schemas/Competency' }
+                      percent: { type: integer }
+                      decisions: { type: integer }
+                topMistake:
+                  type: [object, 'null']
+                  properties:
+                    scenarioTitle: { type: string }
+                    text: { type: string }
+                    count: { type: integer }
+                recommended:
+                  type: [object, 'null']
+                  properties:
+                    id: { type: string }
+                    title: { type: string }
+
+    LeaderboardRow:
+      type: object
+      required: [userId, displayName, position, depot, crew, avatar, total, scenarios, rank]
+      properties:
+        userId: { type: string, format: uuid }
+        displayName: { type: string }
+        position: { type: string }
+        depot: { type: string }
+        crew: { type: string }
+        avatar: { type: [string, 'null'] }
+        total: { type: integer }
+        scenarios: { type: integer }
+        rank: { type: integer, description: 'Спортивная нумерация: равные делят место' }
+
+    LeaderboardResponse:
+      type: object
+      required: [scope, period, depot, depots, updatedAt, top, me]
+      properties:
+        scope: { type: string, enum: [crew, depot, company] }
+        period: { type: string, enum: [week, all] }
+        depot: { type: [string, 'null'] }
+        depots: { type: array, items: { type: string } }
+        updatedAt: { type: string, format: date-time }
+        top:
+          type: array
+          items: { $ref: '#/components/schemas/LeaderboardRow' }
+        me:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/LeaderboardRow'
+
+    NotificationsResponse:
+      type: object
+      required: [daily, streak, unread, items]
+      properties:
+        daily:
+          type: [object, 'null']
+          properties:
+            scenarioId: { type: string }
+            title: { type: string }
+            category: { $ref: '#/components/schemas/Competency' }
+            estimatedMinutes: { type: integer }
+            done: { type: boolean }
+        streak:
+          type: object
+          required: [days, atRisk]
+          properties:
+            days: { type: integer }
+            atRisk: { type: boolean, description: Серия сгорит сегодня в 23:59 МСК }
+        unread: { type: integer }
+        items:
+          type: array
+          description: Новые сверху
+          items:
+            type: object
+            required: [kind, at, read]
+            properties:
+              kind: { type: string, enum: [streak, daily, weekly, badge, new-scenario] }
+              at: { type: string, format: date-time }
+              read: { type: boolean }
+              days: { type: integer, description: streak — длина серии; weekly — дней до обнуления недельных очков }
+              scenarioId: { type: string }
+              title: { type: string }
+              code: { $ref: '#/components/schemas/AchievementCode' }
+
+    ScenarioGraph:
+      type: object
+      required: [id, title, category, difficulty, intro, start, initial, failThresholds, nodes, edges]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        category: { $ref: '#/components/schemas/Competency' }
+        difficulty: { type: integer }
+        intro: { type: string }
+        start: { type: string }
+        initial: { $ref: '#/components/schemas/Meters' }
+        failThresholds: { $ref: '#/components/schemas/Meters' }
+        nodes:
+          type: array
+          items:
+            type: object
+            required: [id, type, isStart, text]
+            properties:
+              id: { type: string }
+              type: { type: string, enum: [choice, consequence, end] }
+              isStart: { type: boolean }
+              text: { type: string }
+              speaker: { type: string }
+              timerSec: { type: integer }
+              effects: { $ref: '#/components/schemas/Effects' }
+              outcome: { $ref: '#/components/schemas/Outcome' }
+        edges:
+          type: array
+          items:
+            type: object
+            required: [id, source, target, label, isTimeout, effects, competencies]
+            properties:
+              id: { type: string }
+              source: { type: string }
+              target: { type: string }
+              label: { type: [string, 'null'] }
+              isTimeout: { type: boolean }
+              effects: { $ref: '#/components/schemas/Effects' }
+              competencies: { $ref: '#/components/schemas/CompetencyDeltas' }
+              condition:
+                type: object
+                description: 'Условие ветки (схема v1.1): все ключи должны выполняться'
+                properties:
+                  loyalty: { type: object, properties: { lt: { type: integer }, gte: { type: integer } } }
+                  safety: { type: object, properties: { lt: { type: integer }, gte: { type: integer } } }
+                  chose: { type: string, description: 'id варианта, выбранного ранее в этом прохождении' }
+              isFallback: { type: boolean, const: true }
+
+    AdminAnalyticsResponse:
+      type: object
+      required: [depot, crew, units, conductors, runs, competencies, weakest, nodes]
+      properties:
+        depot: { type: [string, 'null'] }
+        crew: { type: [string, 'null'] }
+        units:
+          type: array
+          items:
+            type: object
+            required: [depot, crews]
+            properties:
+              depot: { type: string }
+              crews: { type: array, items: { type: string } }
+        conductors: { type: integer }
+        runs: { type: integer }
+        competencies:
+          type: array
+          items:
+            type: object
+            required: [key, avg]
+            properties:
+              key: { $ref: '#/components/schemas/Competency' }
+              avg: { type: number, description: Средние баллы на проводника }
+        weakest:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/Competency'
+        nodes:
+          type: array
+          items:
+            type: object
+            required: [scenarioId, scenarioTitle, nodeId, text, visits, timeouts, fails]
+            properties:
+              scenarioId: { type: string }
+              scenarioTitle: { type: string }
+              nodeId: { type: string }
+              text: { type: string }
+              visits: { type: integer }
+              timeouts: { type: integer }
+              fails: { type: integer }
+
+    IntegrationProgressResponse:
+      type: object
+      required: [generatedAt, employees]
+      properties:
+        generatedAt: { type: string, format: date-time }
+        employees:
+          type: array
+          items:
+            type: object
+            required: [id, name, depot, crew, xp, rank, competencies, badges, runs, lastRunAt]
+            properties:
+              id: { type: string, format: uuid, description: Внутренний id; сопоставляется с кадровой системой один раз }
+              name: { type: string }
+              depot: { type: string }
+              crew: { type: string, description: Пустая строка — бригада не назначена }
+              xp: { type: integer }
+              rank: { $ref: '#/components/schemas/LevelKey' }
+              competencies:
+                type: object
+                required: [conflict, medical, safety, service, communication]
+                properties:
+                  conflict: { type: integer, minimum: 0 }
+                  medical: { type: integer, minimum: 0 }
+                  safety: { type: integer, minimum: 0 }
+                  service: { type: integer, minimum: 0 }
+                  communication: { type: integer, minimum: 0 }
+              badges: { type: array, items: { $ref: '#/components/schemas/AchievementCode' } }
+              runs: { type: integer }
+              lastRunAt: { type: [string, 'null'], format: date-time }

@@ -2,8 +2,10 @@
 // coded against these types, so a route that changes shape breaks the build, not the demo.
 
 import { z } from 'zod'
+import type { AchievementCode } from './achievements'
 import type { ClientNode, MeterKey, Meters } from './engine'
 import type { ScenarioGraph } from './graph'
+import type { LevelKey } from './profile'
 import type { Competency, Effects, Outcome } from './schema'
 import type { score } from './score'
 
@@ -186,4 +188,34 @@ export type AdminAnalyticsResponse = {
   weakest: Competency | null
   /** Most timeouts plus fails first. Nodes with neither are left out. */
   nodes: AnalyticsNode[]
+}
+
+/**
+ * GET /integration/progress: one row per employee for an HR or LMS import. Bearer-token only,
+ * no cookie. No email and nothing else that identifies a person outside the company: the id is
+ * the internal uuid, and HR matches it against their own records once.
+ */
+export type IntegrationEmployee = {
+  id: string
+  name: string
+  depot: string
+  /** '' when not assigned. */
+  crew: string
+  /** Sum of the best score per scenario, the same number the profile shows. */
+  xp: number
+  rank: LevelKey
+  /** Radar points per competency, floored at 0 like the profile's. */
+  competencies: Record<Competency, number>
+  /** Earned badge codes, oldest first. */
+  badges: AchievementCode[]
+  /** Finished runs, replays included. */
+  runs: number
+  /** ISO 8601; null until the first finished run. */
+  lastRunAt: string | null
+}
+
+export type IntegrationProgressResponse = {
+  /** ISO 8601. */
+  generatedAt: string
+  employees: IntegrationEmployee[]
 }
