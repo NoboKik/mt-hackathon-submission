@@ -149,3 +149,41 @@ export type DebriefResponse = {
   yourPath: DebriefStep[]
   expertPath: { choiceId: string; text: string }[]
 }
+
+/**
+ * Query string for GET /admin/analytics. No filter = the whole company. `crew` needs `depot`:
+ * crew names repeat across depots.
+ */
+export const AnalyticsQuery = z
+  .object({ depot: z.string().min(1).optional(), crew: z.string().min(1).optional() })
+  .refine((q) => !q.crew || q.depot, { path: ['crew'], message: 'crew needs depot' })
+export type AnalyticsQuery = z.infer<typeof AnalyticsQuery>
+
+/** A decision node where runs go wrong. Choice nodes only: nothing else can time out or be chosen. */
+export type AnalyticsNode = {
+  scenarioId: string
+  scenarioTitle: string
+  nodeId: string
+  text: string
+  /** Decisions recorded at this node. */
+  visits: number
+  timeouts: number
+  /** Runs that ended in `fail` with this as their last decision. */
+  fails: number
+}
+
+/** GET /admin/analytics: finished curated runs across a depot, a crew or the company. */
+export type AdminAnalyticsResponse = {
+  depot: string | null
+  crew: string | null
+  /** Every depot and its crews, unfiltered — the pickers' options. */
+  units: { depot: string; crews: string[] }[]
+  conductors: number
+  runs: number
+  /** Average points per conductor, in COMPETENCIES order. */
+  competencies: { key: Competency; avg: number }[]
+  /** Lowest average; null when nobody in the filter has finished a run. */
+  weakest: Competency | null
+  /** Most timeouts plus fails first. Nodes with neither are left out. */
+  nodes: AnalyticsNode[]
+}

@@ -28,6 +28,7 @@ export const ru = {
     scenarios: 'Сценарии',
     profile: 'Профиль',
     leaderboard: 'Рейтинг',
+    analytics: 'Аналитика',
     signOut: 'Выйти',
     // Controls on the floating shell. `theme` is one label for both directions on purpose:
     // the button's icon says which way it goes, and a label that flips mid-interaction is
@@ -151,6 +152,32 @@ export const ru = {
     initial: 'Старт шкал',
     thresholds: 'Порог провала',
     notFound: 'Сценарий не найден.',
+  },
+  analytics: {
+    title: 'Аналитика бригады',
+    subtitle: 'По завершённым прогонам сценариев из каталога.',
+    depot: 'Депо',
+    crew: 'Бригада',
+    allDepots: 'Все депо',
+    allCrews: 'Все бригады',
+    conductors: 'Проводников',
+    runs: 'Прогонов',
+    competencies: 'Компетенции, баллов на проводника',
+    // «Зона роста: Медицинская помощь — 1,2 на проводника, в среднем по остальным 4,5.
+    // Чаще всего ошибаются в «…»: провалы 3, таймауты 2.»
+    weakestLead: 'Зона роста',
+    worstLead: 'Чаще всего ошибаются в',
+    perConductor: 'на проводника',
+    againstAvg: 'в среднем по остальным',
+    nodes: 'Где ошибаются чаще всего',
+    nodesHint:
+      'Таймауты и провалы на узле выбора; провал — последнее решение перед неудачным финалом.',
+    timeouts: 'Таймауты',
+    fails: 'Провалы',
+    visits: 'решений',
+    noRuns: 'В этой выборке ещё нет завершённых прогонов.',
+    noNodes:
+      'Нет таймаутов и провалов с записанным путём: сид хранит только итоги, узлы появятся после живых прогонов.',
   },
   common: {
     loading: 'Загрузка…',

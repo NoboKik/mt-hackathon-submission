@@ -15,6 +15,7 @@ const LINKS = [
   { href: '/', label: ru.nav.scenarios },
   { href: '/profile', label: ru.nav.profile },
   { href: '/leaderboard', label: ru.nav.leaderboard },
+  { href: '/admin/analytics', label: ru.nav.analytics },
 ] as const
 
 // The wordmark is typographic plus a generic glyph on purpose: the organizer's marks belong

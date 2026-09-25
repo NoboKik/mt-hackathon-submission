@@ -423,3 +423,37 @@ export async function notificationInput(userId: string) {
 export async function markNotificationsSeen(userId: string) {
   await db().update(users).set({ notificationsSeenAt: new Date() }).where(eq(users.id, userId))
 }
+
+/**
+ * Everything crewAnalytics needs, company-wide: users, finished curated runs, and the curated
+ * scenarios whose node texts label the chart. Generated scenarios are one conductor's draft each,
+ * so their nodes say nothing about a crew.
+ */
+export async function analyticsInput() {
+  const [people, runs, curated] = await Promise.all([
+    db().select({ id: users.id, depot: users.depot, crew: users.crew }).from(users),
+    db()
+      .select({
+        userId: sessions.userId,
+        scenarioId: sessions.scenarioId,
+        outcome: sessions.outcome,
+        competencyDeltas: sessions.competencyDeltas,
+        path: sessions.path,
+      })
+      .from(sessions)
+      .innerJoin(scenarios, eq(scenarios.id, sessions.scenarioId))
+      .where(and(isNotNull(sessions.finishedAt), eq(scenarios.source, 'curated'))),
+    db()
+      .select({ id: scenarios.id, title: scenarios.title, json: scenarios.json })
+      .from(scenarios)
+      .where(eq(scenarios.source, 'curated')),
+  ])
+  return {
+    users: people,
+    // A finished run always has an outcome; the flatMap only convinces the type of it.
+    runs: runs.flatMap((r) => (r.outcome ? [{ ...r, outcome: r.outcome }] : [])),
+    scenarios: new Map(
+      curated.map((s) => [s.id, { title: s.title, json: Scenario.parse(s.json) }]),
+    ),
+  }
+}
