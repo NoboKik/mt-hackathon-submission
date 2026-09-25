@@ -20,10 +20,11 @@ against the dataset (25 Sept 2026).
 | 6 | `communication-delay-01.json` ✅ | Задержка на 40 минут | `communication` | 2 | Information cadence, compensation, tone |
 | 7 | `safety-bag-01.json` ✅ | Бесхозная сумка в тамбуре | `safety` | 3 | Protocol vs not alarming the car |
 | 8 | `medical-allergy-01.json` ✅ | Аллергическая реакция после обеда | `medical` | 3 | The passenger's own auto-injector, a doctor via the начальник поезда, allergen policy |
+| 9 | `safety-acceptance-01.json` ✅ | Приёмка вагона перед рейсом | `safety` | 2 | Boarding on time vs reporting a defect (T14d, 25 Sept 2026) |
 
 `conflict-seat-01` is how `diplomat` (Дипломат) unlocks: its expert path ends at 85/85.
 
-The spread is deliberate: all five categories are covered, difficulty lands on 3×1, 3×2, 2×3, and
+The spread is deliberate: all five categories are covered, difficulty lands on 3×1, 4×2, 2×3, and
 the profile radar only fills in if choices spend competency points across all five axes.
 
 ## What the validator enforces
