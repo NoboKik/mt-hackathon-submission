@@ -29,6 +29,13 @@
       "when": 1790343771789,
       "tag": "0003_user_crew",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790344933763,
+      "tag": "0004_notifications_seen",
+      "breakpoints": true
     }
   ]
 }

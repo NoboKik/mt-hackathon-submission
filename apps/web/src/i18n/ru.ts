@@ -238,6 +238,30 @@ export const ru = {
     draftChip: 'ИИ-черновик',
     next: 'Следующий сценарий',
   },
+  // The daily card on the home screen. MSK days: the streak burns at the conductor's midnight.
+  daily: {
+    eyebrow: 'Сценарий дня',
+    done: 'Пройден сегодня',
+    start: 'Пройти сценарий дня',
+    again: 'Пройти ещё раз',
+    streak: 'Серия',
+    days: 'дн.',
+    streakAtRisk: 'Сгорит сегодня в 23:59 — пройдите любой сценарий',
+    streakKept: 'Сегодня серия продлена',
+    streakNone: 'Проходите сценарий каждый день, чтобы собрать серию',
+  },
+  // The bell. Functions, because each line carries a title or a count.
+  notifications: {
+    title: 'Уведомления',
+    unread: (n: number) => `Уведомления, непрочитанных: ${n}`,
+    empty: 'Новых уведомлений нет.',
+    streak: (days: number) => `Серия ${days} дн. сгорит сегодня в 23:59`,
+    daily: (title: string) => `Сценарий дня ещё не пройден: «${title}»`,
+    weekly: (title: string, days: number) =>
+      `Недельные очки за «${title}» обнулятся через ${days} дн. Пройдите его снова`,
+    badge: (title: string) => `Новый значок: «${title}»`,
+    newScenario: (title: string) => `Новый сценарий: «${title}»`,
+  },
   errors: {
     llmNotConfigured: 'Автоматический режим не настроен: на сервере не задан доступ к модели.',
     llmDailyLimit:

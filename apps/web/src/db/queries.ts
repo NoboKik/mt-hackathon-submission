@@ -370,3 +370,56 @@ export async function insertGenerated(s: Scenario) {
     status: 'draft',
   })
 }
+
+/**
+ * Everything notificationsFor needs, as epoch ms. Undefined for a stale cookie. Every finished run
+ * rides back: the streak needs all of them, and a conductor's history is tens of rows.
+ */
+export async function notificationInput(userId: string) {
+  const [user] = await db()
+    .select({ createdAt: users.createdAt, seenAt: users.notificationsSeenAt })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+  if (!user) return undefined
+
+  const [curated, runs, badges] = await Promise.all([
+    db()
+      .select({ id: scenarios.id, json: scenarios.json, createdAt: scenarios.createdAt })
+      .from(scenarios)
+      .where(eq(scenarios.source, 'curated')),
+    db()
+      .select({
+        scenarioId: sessions.scenarioId,
+        finishedAt: sessions.finishedAt,
+        source: scenarios.source,
+      })
+      .from(sessions)
+      .innerJoin(scenarios, eq(scenarios.id, sessions.scenarioId))
+      .where(and(eq(sessions.userId, userId), isNotNull(sessions.finishedAt))),
+    earnedAchievements(userId),
+  ])
+
+  return {
+    joinedAt: user.createdAt.getTime(),
+    seenAt: user.seenAt?.getTime() ?? null,
+    scenarios: curated.map((s) => ({
+      id: s.id,
+      title: s.json.title,
+      category: s.json.category,
+      estimatedMinutes: s.json.estimatedMinutes,
+      createdAt: s.createdAt.getTime(),
+    })),
+    runs: runs.map((r) => ({
+      scenarioId: r.scenarioId,
+      finishedAt: r.finishedAt?.getTime() ?? 0,
+      curated: r.source === 'curated',
+    })),
+    badges: badges.map((b) => ({ code: b.code, earnedAt: Date.parse(b.earnedAt) })),
+  }
+}
+
+/** The bell was opened: everything derived up to now reads as read. */
+export async function markNotificationsSeen(userId: string) {
+  await db().update(users).set({ notificationsSeenAt: new Date() }).where(eq(users.id, userId))
+}

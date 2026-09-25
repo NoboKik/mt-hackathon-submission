@@ -2,10 +2,11 @@
 
 import type { ScenarioListItem } from '@p400/shared'
 import { useQuery } from '@tanstack/react-query'
-import { Clock3, Sparkles, Workflow } from 'lucide-react'
+import { CalendarCheck, Clock3, Flame, Sparkles, Workflow } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
+import { useNotifications } from '@/components/notifications'
 import { buttonClass, Card, Chip, Eyebrow, Stat, surface } from '@/components/ui'
 import { ru } from '@/i18n/ru'
 import { ApiError, api } from '@/lib/client'
@@ -88,6 +89,71 @@ function ScenarioCard({ scenario }: { scenario: ScenarioListItem }) {
   )
 }
 
+/**
+ * Today's challenge and the streak it keeps. Same query as the header bell, so finishing the
+ * daily updates both. Renders nothing until it has data: it sits above the fold, and a skeleton
+ * for a card that is never empty would be one more thing jumping on load.
+ */
+function DailyCard() {
+  const { data } = useNotifications()
+  if (!data?.daily) return null
+  const { daily, streak } = data
+
+  return (
+    <Card pad="lg" className="flex flex-col gap-5">
+      <div className="flex flex-col gap-2">
+        <div className="flex items-start justify-between gap-3">
+          <Eyebrow className="inline-flex items-center gap-1.5 pt-1">
+            <CalendarCheck className="size-4" aria-hidden="true" />
+            {ru.daily.eyebrow}
+          </Eyebrow>
+          {daily.done && (
+            <Chip tone="safe" className="shrink-0">
+              {ru.daily.done}
+            </Chip>
+          )}
+        </div>
+        <h2 className="text-lead text-balance">{daily.title}</h2>
+        <p className="text-xs text-muted-foreground">
+          {ru.competencies[daily.category]} · {daily.estimatedMinutes} {ru.home.minutes}
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-4 border-t border-border pt-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex items-center gap-3">
+          <Flame
+            className={cn(
+              'size-7 shrink-0',
+              streak.days ? 'text-brand-text' : 'text-muted-foreground',
+            )}
+            aria-hidden="true"
+          />
+          <Stat
+            label={ru.daily.streak}
+            value={`${streak.days} ${ru.daily.days}`}
+            hint={
+              streak.atRisk
+                ? ru.daily.streakAtRisk
+                : streak.days
+                  ? ru.daily.streakKept
+                  : ru.daily.streakNone
+            }
+          />
+        </div>
+        <Link
+          href={`/play/${daily.scenarioId}`}
+          className={cn(
+            buttonClass({ variant: daily.done ? 'outline' : 'primary' }),
+            'w-full sm:w-auto',
+          )}
+        >
+          {daily.done ? ru.daily.again : ru.daily.start}
+        </Link>
+      </div>
+    </Card>
+  )
+}
+
 /** Placeholder of the same shape as a real card, so the first paint has the page's layout. */
 function SkeletonCard() {
   return (
@@ -124,6 +190,8 @@ export default function HomePage() {
           {ru.home.subtitle}
         </p>
       </header>
+
+      <DailyCard />
 
       {/* Auto mode sits above the list: the endless stream is the one action that needs no
           choosing. */}

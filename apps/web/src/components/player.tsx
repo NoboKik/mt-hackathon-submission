@@ -7,7 +7,7 @@ import type {
   Meters,
   StartSessionResponse,
 } from '@p400/shared'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Award } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -126,6 +126,7 @@ export function Player({ scenarioId, auto = false }: { scenarioId: string; auto?
   // When the current node was put on screen; the server charges elapsed time from its own
   // clock and only uses ours inside the grace window (see TIMER_GRACE_MS).
   const shownAt = useRef(Date.now())
+  const queryClient = useQueryClient()
 
   const start = useMutation({
     mutationFn: () => post<StartSessionResponse>('/sessions', { scenarioId }),
@@ -146,6 +147,9 @@ export function Player({ scenarioId, auto = false }: { scenarioId: string; auto?
     onSuccess: (r) => {
       shownAt.current = Date.now()
       setRun((prev) => (prev ? { ...prev, ...r } : prev))
+      // The header's bell and the daily card: a finished run can mark the daily done, keep the
+      // streak and unlock a badge.
+      if (r.finished) queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
     onError: (e: Error) => setError(e.message),
   })

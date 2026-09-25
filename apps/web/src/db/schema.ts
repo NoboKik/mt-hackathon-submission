@@ -26,6 +26,9 @@ export const users = pgTable('users', {
   // Бригада within the depot; '' = not assigned yet (pnpm user:add without --crew).
   crew: text('crew').notNull().default(''),
   avatar: text('avatar'),
+  // When the bell was last opened. The feed itself is derived at read time (notificationsFor);
+  // this one timestamp is its whole read state. Null = never opened.
+  notificationsSeenAt: tstz('notifications_seen_at'),
   createdAt: tstz('created_at').notNull().defaultNow(),
 })
 

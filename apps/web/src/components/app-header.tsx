@@ -5,6 +5,7 @@ import { LogOut, Menu, TrainFront, X } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef } from 'react'
+import { NotificationBell } from '@/components/notifications'
 import { ThemeToggle } from '@/components/ui'
 import { ru } from '@/i18n/ru'
 import { post } from '@/lib/client'
@@ -112,7 +113,14 @@ export function AppHeader() {
               </ul>
             </nav>
 
-            <ThemeToggle className="text-header-foreground hover:bg-header-active hover:text-header-foreground focus-visible:ring-header-foreground sm:ml-2" />
+            {/* Mounted only when signed in, so /login never asks for a feed it would 401 on. */}
+            {signedIn && (
+              <div className="sm:ml-2">
+                <NotificationBell />
+              </div>
+            )}
+
+            <ThemeToggle className="text-header-foreground hover:bg-header-active hover:text-header-foreground focus-visible:ring-header-foreground" />
 
             {signedIn && (
               <button
