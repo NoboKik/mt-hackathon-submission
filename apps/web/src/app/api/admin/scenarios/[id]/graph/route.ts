@@ -21,13 +21,13 @@ function conditionLabel(c: Condition, scenario: Scenario): string {
 }
 
 // `users` has no role column, so this is gated on any signed-in user. A real admin gate is a
-// migration and its own session.
+// migration and its own change.
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const userId = await currentUserId()
-  if (!userId) return fail(401, ru.errors.unauthorized)
+  if (!userId) return fail(401, 'unauthorized')
 
   const found = await scenarioById((await params).id)
-  if (!found) return fail(404, ru.errors.scenarioNotFound)
+  if (!found) return fail(404, 'scenarioNotFound')
 
   const graph = scenarioGraph(found.scenario)
   const res: AdminGraphResponse = {

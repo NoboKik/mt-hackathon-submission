@@ -1,5 +1,5 @@
-// Browser-side fetch for app/api. Every route answers `{ error }` on failure (see lib/api.ts),
-// so unwrapping that here is the one thing worth sharing between screens.
+// Browser-side fetch for app/api. Every route answers `{ error: code }` on failure (see
+// lib/api.ts); turning that code into Russian text here is the one thing worth sharing.
 
 import { ru } from '@/i18n/ru'
 
@@ -19,7 +19,10 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   })
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { error?: string } | null
-    throw new ApiError(res.status, body?.error ?? ru.common.error)
+    const code = body?.error
+    const text =
+      code && Object.hasOwn(ru.errors, code) ? ru.errors[code as keyof typeof ru.errors] : undefined
+    throw new ApiError(res.status, text ?? ru.common.error)
   }
   return res.json() as Promise<T>
 }

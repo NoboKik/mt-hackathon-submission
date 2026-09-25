@@ -28,6 +28,8 @@ export async function userByEmail(email: string) {
 
 /** Parsed, not just cast: `$type<Scenario>()` is only a compile-time claim about a jsonb column. */
 export async function scenarioById(id: string) {
+  // Not a valid id is simply not found; a NUL byte would otherwise reach Postgres and answer 500.
+  if (!Scenario.shape.id.safeParse(id).success) return undefined
   const rows = await db()
     .select({ json: scenarios.json, source: scenarios.source, status: scenarios.status })
     .from(scenarios)

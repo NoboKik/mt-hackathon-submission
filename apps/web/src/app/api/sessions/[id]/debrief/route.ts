@@ -11,7 +11,6 @@ import {
 } from '@p400/shared'
 import { NextResponse } from 'next/server'
 import { sessionFor } from '@/db/queries'
-import { ru } from '@/i18n/ru'
 import { fail } from '@/lib/api'
 import { currentUserId } from '@/lib/auth'
 
@@ -26,14 +25,14 @@ function choiceTexts(scenario: Scenario) {
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const userId = await currentUserId()
-  if (!userId) return fail(401, ru.errors.unauthorized)
+  if (!userId) return fail(401, 'unauthorized')
 
   const loaded = await sessionFor((await params).id, userId)
-  if (!loaded) return fail(404, ru.errors.sessionNotFound)
+  if (!loaded) return fail(404, 'sessionNotFound')
   const { session, scenario } = loaded
   // Also narrows outcome and scoreBreakdown, which are null for as long as a session runs.
   if (!session.finishedAt || !session.outcome || !session.scoreBreakdown)
-    return fail(409, ru.errors.sessionNotFinished)
+    return fail(409, 'sessionNotFinished')
 
   // Seeded history is finished but parked on its start node, and a threshold end can only
   // borrow a debrief from a success ending the scenario may not have. Neither has one to show.
@@ -44,7 +43,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     // Replays the stored path, so it also fails if the content lost a node the run went through.
     yourPath = debriefSteps(scenario, session.path, debrief.expertPath)
   } catch (e) {
-    if (e instanceof EngineError) return fail(409, ru.errors.debriefUnavailable)
+    if (e instanceof EngineError) return fail(409, 'debriefUnavailable')
     throw e
   }
   const texts = choiceTexts(scenario)

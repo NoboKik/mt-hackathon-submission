@@ -1,7 +1,6 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { userByEmail } from '@/db/queries'
-import { ru } from '@/i18n/ru'
 import { fail } from '@/lib/api'
 import { inviteOk, setSessionCookie } from '@/lib/auth'
 
@@ -21,11 +20,11 @@ export async function POST(req: Request) {
   const given = typeof body?.invite === 'string' ? body.invite : undefined
   const store = await cookies()
   if (!inviteOk(given) && !inviteOk(store.get(INVITE_COOKIE)?.value))
-    return fail(403, ru.errors.demoInviteRequired)
+    return fail(403, 'demoInviteRequired')
 
   const user = await userByEmail(DEMO_EMAIL)
   // SEED_DEMO=0, or a dev database that was migrated but never seeded.
-  if (!user) return fail(404, ru.errors.demoUserMissing)
+  if (!user) return fail(404, 'demoUserMissing')
 
   await setSessionCookie(user.id)
   if (given && inviteOk(given))

@@ -1,7 +1,6 @@
 import { AnalyticsQuery } from '@p400/shared'
 import { NextResponse } from 'next/server'
 import { analyticsInput } from '@/db/queries'
-import { ru } from '@/i18n/ru'
 import { crewAnalytics } from '@/lib/analytics'
 import { fail } from '@/lib/api'
 import { currentUserId } from '@/lib/auth'
@@ -9,14 +8,14 @@ import { currentUserId } from '@/lib/auth'
 // Gated on any signed-in user, like the graph viewer: `users` has no role column yet.
 export async function GET(req: Request) {
   const userId = await currentUserId()
-  if (!userId) return fail(401, ru.errors.unauthorized)
+  if (!userId) return fail(401, 'unauthorized')
 
   const params = new URL(req.url).searchParams
   const query = AnalyticsQuery.safeParse({
     depot: params.get('depot') || undefined,
     crew: params.get('crew') || undefined,
   })
-  if (!query.success) return fail(400, ru.errors.badRequest, query.error.issues)
+  if (!query.success) return fail(400, 'badRequest', query.error.issues)
 
   const input = await analyticsInput()
   const { depot = null, crew = null } = query.data

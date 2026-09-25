@@ -1,14 +1,13 @@
 import { LeaderboardQuery, type LeaderboardResponse } from '@p400/shared'
 import { NextResponse } from 'next/server'
 import { leaderboardTotals } from '@/db/queries'
-import { ru } from '@/i18n/ru'
 import { fail } from '@/lib/api'
 import { currentUserId } from '@/lib/auth'
 import { leaderboardPage } from '@/lib/leaderboard'
 
 export async function GET(req: Request) {
   const userId = await currentUserId()
-  if (!userId) return fail(401, ru.errors.unauthorized)
+  if (!userId) return fail(401, 'unauthorized')
 
   const params = new URL(req.url).searchParams
   const query = LeaderboardQuery.safeParse({
@@ -16,12 +15,12 @@ export async function GET(req: Request) {
     period: params.get('period') ?? undefined,
     depot: params.get('depot') ?? undefined,
   })
-  if (!query.success) return fail(400, ru.errors.badRequest, query.error.issues)
+  if (!query.success) return fail(400, 'badRequest', query.error.issues)
 
   const { at, rows } = await leaderboardTotals(query.data.period)
   // Every existing user is on the board, at 0 if they have played nothing. Absent entirely means
   // the cookie outlived its user — the same treatment POST /api/sessions gives a stale cookie.
-  if (!rows.some((row) => row.userId === userId)) return fail(401, ru.errors.unauthorized)
+  if (!rows.some((row) => row.userId === userId)) return fail(401, 'unauthorized')
 
   const { scope } = query.data
   // The depot filter belongs to the company view; the narrower scopes are the viewer's own.

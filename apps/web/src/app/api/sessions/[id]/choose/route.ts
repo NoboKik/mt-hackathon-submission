@@ -19,23 +19,21 @@ import {
   unlockAchievements,
 } from '@/db/queries'
 import type { PathStep } from '@/db/schema'
-import { ru } from '@/i18n/ru'
 import { endText, expertPathTaken, fail, finishValues } from '@/lib/api'
 import { currentUserId } from '@/lib/auth'
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const userId = await currentUserId()
-  if (!userId) return fail(401, ru.errors.unauthorized)
+  if (!userId) return fail(401, 'unauthorized')
 
   const body = ChooseBody.safeParse(await req.json().catch(() => null))
-  if (!body.success) return fail(400, ru.errors.badRequest, body.error.issues)
+  if (!body.success) return fail(400, 'badRequest', body.error.issues)
 
   const loaded = await sessionFor((await params).id, userId)
-  if (!loaded) return fail(404, ru.errors.sessionNotFound)
+  if (!loaded) return fail(404, 'sessionNotFound')
   const { session, scenario } = loaded
   // Covers a finished session, a stale node id and the double submit of the same step.
-  if (session.finishedAt || session.currentNode !== body.data.nodeId)
-    return fail(409, ru.errors.staleStep)
+  if (session.finishedAt || session.currentNode !== body.data.nodeId) return fail(409, 'staleStep')
 
   // The server's clock is the referee: a real choice that arrives after the timer plus the grace
   // window is a timeout, whatever elapsedMs the client reports.
@@ -60,7 +58,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     )
   } catch (e) {
     // A choice id the node doesn't have: a stale or hand-rolled client, not a server fault.
-    if (e instanceof EngineError) return fail(400, ru.errors.badRequest)
+    if (e instanceof EngineError) return fail(400, 'badRequest')
     throw e
   }
 
@@ -87,7 +85,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     ...finish,
   })
   // Another tab moved this session on between the read and the write.
-  if (!written) return fail(409, ru.errors.staleStep)
+  if (!written) return fail(409, 'staleStep')
 
   // Only a finished run can unlock anything, and only after the write won its race: a lost race
   // must not hand out a badge for a step some other tab actually took.

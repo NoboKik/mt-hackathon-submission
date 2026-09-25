@@ -17,8 +17,11 @@ import type { ZodError } from 'zod'
 import type { PathStep } from '@/db/schema'
 import { ru } from '@/i18n/ru'
 
-/** Error bodies are `{ error }`; a 400 adds the Zod issues, which are for the developer. */
-export const fail = (status: number, error: string, issues?: ZodError['issues']) =>
+/** A machine-readable error code; the browser turns it into Russian text (lib/client.ts). */
+export type ErrorCode = keyof typeof ru.errors
+
+/** Error bodies are `{ error: code }`; a 400 adds the Zod issues, which are for the developer. */
+export const fail = (status: number, error: ErrorCode, issues?: ZodError['issues']) =>
   NextResponse.json(issues ? { error, issues } : { error }, { status })
 
 /** The engine has no copy, so it returns the threshold end with an empty text. Fill it here. */

@@ -3,7 +3,6 @@ import { enter, StartSessionBody, type StartSessionResponse } from '@p400/shared
 import { NextResponse } from 'next/server'
 import { createSession, scenarioById, userExists } from '@/db/queries'
 import type { NewGameSession } from '@/db/schema'
-import { ru } from '@/i18n/ru'
 import { endText, fail, finishValues } from '@/lib/api'
 import { currentUserId } from '@/lib/auth'
 
@@ -11,14 +10,14 @@ export async function POST(req: Request) {
   const userId = await currentUserId()
   // The cookie can outlive its user, and only this route writes a row that references one:
   // without the check the insert trips the user_id foreign key and answers 500, not 401.
-  if (!userId || !(await userExists(userId))) return fail(401, ru.errors.unauthorized)
+  if (!userId || !(await userExists(userId))) return fail(401, 'unauthorized')
 
   const body = StartSessionBody.safeParse(await req.json().catch(() => null))
-  if (!body.success) return fail(400, ru.errors.badRequest, body.error.issues)
+  if (!body.success) return fail(400, 'badRequest', body.error.issues)
 
   // Trusted content: the seed only stores scenarios that passed the validator.
   const found = await scenarioById(body.data.scenarioId)
-  if (!found) return fail(404, ru.errors.scenarioNotFound)
+  if (!found) return fail(404, 'scenarioNotFound')
   const { scenario, source, status } = found
 
   // Seeds the choice shuffle; the same seed replays the same order.

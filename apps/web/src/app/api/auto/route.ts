@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { unplayedGenerated, userExists } from '@/db/queries'
-import { ru } from '@/i18n/ru'
 import { fail } from '@/lib/api'
 import { currentUserId } from '@/lib/auth'
 import { LlmConfigError, llmConfig } from '@/llm/client'
@@ -12,7 +11,7 @@ import { dailyLimitReached, topUpPool } from '@/llm/pool'
  */
 export async function POST() {
   const userId = await currentUserId()
-  if (!userId || !(await userExists(userId))) return fail(401, ru.errors.unauthorized)
+  if (!userId || !(await userExists(userId))) return fail(401, 'unauthorized')
 
   const [scenarioId] = await unplayedGenerated(userId)
   // Not awaited: the player gets their scenario now, the pool refills while they play it.
@@ -22,10 +21,10 @@ export async function POST() {
   try {
     llmConfig()
   } catch (e) {
-    if (e instanceof LlmConfigError) return fail(503, ru.errors.llmNotConfigured)
+    if (e instanceof LlmConfigError) return fail(503, 'llmNotConfigured')
     throw e
   }
   // Nothing queued and nothing will be generated today: don't let /auto poll for two minutes.
-  if (await dailyLimitReached()) return fail(503, ru.errors.llmDailyLimit)
+  if (await dailyLimitReached()) return fail(503, 'llmDailyLimit')
   return NextResponse.json({ status: 'generating' }, { status: 202 })
 }
