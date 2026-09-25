@@ -11,7 +11,7 @@ import type {
   MeUser,
   ProfileSession,
 } from '@p400/shared'
-import { Scenario, type ScenarioListItem, THRESHOLD_END_ID } from '@p400/shared'
+import { decisionsOf, Scenario, type ScenarioListItem, THRESHOLD_END_ID } from '@p400/shared'
 import { and, desc, eq, isNotNull, isNull, notExists, sql } from 'drizzle-orm'
 import { expertPathTaken } from '@/lib/api'
 import { db } from './index'
@@ -208,10 +208,9 @@ export async function profileSessions(userId: string): Promise<ProfileSession[]>
       id: sessions.id,
       scenarioId: sessions.scenarioId,
       title: scenarios.title,
-      category: scenarios.category,
       difficulty: scenarios.difficulty,
-      // NOTE: the whole scenario jsonb rides back per row to answer one boolean. The history
-      // is tens of rows; group by scenario first if it ever stops being.
+      // NOTE: the whole scenario jsonb rides back per row to label one path. The history is
+      // tens of rows; group by scenario first if it ever stops being.
       json: scenarios.json,
       outcome: sessions.outcome,
       score: sessions.score,
@@ -235,7 +234,8 @@ export async function profileSessions(userId: string): Promise<ProfileSession[]>
             id: r.id,
             scenarioId: r.scenarioId,
             title: r.title,
-            category: r.category,
+            // Off the json, not the text column: the json one is typed as a Competency.
+            category: r.json.category,
             difficulty: r.difficulty,
             outcome: r.outcome,
             score: r.score,
@@ -248,6 +248,7 @@ export async function profileSessions(userId: string): Promise<ProfileSession[]>
             // debriefFor throws on anything that is not an end node, and every seeded session is
             // parked on scenario.start. engine.ts documents the two as equivalent anyway.
             onExpertPath: expertPathTaken(r.json, THRESHOLD_END_ID, r.path),
+            decisions: decisionsOf(r.json, r.path),
           },
         ]
       : [],

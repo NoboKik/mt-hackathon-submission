@@ -1,6 +1,9 @@
 import { expect, test } from 'vitest'
+import { medicalFaint01 } from './__fixtures__/medical-faint-01'
+import type { ScenarioListItem } from './api'
 import {
   competencyLevel,
+  decisionsOf,
   levelForXp,
   type MeUser,
   type ProfileSession,
@@ -29,6 +32,7 @@ const run = (over: Partial<ProfileSession> = {}): ProfileSession => ({
   finishedAt: '2026-09-27T12:00:00.000Z',
   competencyDeltas: { medical: 4, communication: 2 },
   onExpertPath: true,
+  decisions: [],
   ...over,
 })
 
@@ -111,4 +115,90 @@ test('earned badges carry their date, the rest stay null', () => {
   const byCode = new Map(p.achievements.map((a) => [a.code, a.earnedAt]))
   expect(byCode.get('first-run')).toBe('2026-09-27T12:00:01.000Z')
   expect(byCode.get('flawless')).toBeNull()
+})
+
+test('decisionsOf labels each step with its text and the expert choice at that node', () => {
+  const d = decisionsOf(medicalFaint01, [
+    { nodeId: 'n1', choiceId: 'c1' },
+    { nodeId: 'n2', choiceId: 'timeout' },
+    { nodeId: 'n_panic', choiceId: 'c11' },
+    { nodeId: 'gone', choiceId: 'c99' },
+  ])
+  expect(d.map((x) => x.expertId)).toEqual(['c1', 'c4', null, null])
+  expect(d[0]?.text).toEqual(expect.any(String))
+  expect(d[1]?.text).toBeNull()
+})
+
+const item = (over: Partial<ScenarioListItem>): ScenarioListItem => ({
+  id: 'x',
+  title: 'X',
+  category: 'medical',
+  difficulty: 1,
+  estimatedMinutes: 5,
+  bestScore: null,
+  attempts: 0,
+  ...over,
+})
+
+test('growth zones: weakest axis, timeouts, off-expert share, top mistake, recommendation', () => {
+  const wrong = { choiceId: 'c5', text: 'Поднять пассажира', expertId: 'c4' }
+  const p = profileFor(
+    USER,
+    [
+      run({ category: 'medical', decisions: [wrong, wrong, { ...wrong, choiceId: 'c4' }] }),
+      run({
+        scenarioId: 'safety-bag-01',
+        title: 'Бесхозная сумка',
+        category: 'safety',
+        competencyDeltas: { safety: 5, conflict: 6, service: 3, communication: 3 },
+        decisions: [
+          { choiceId: 'timeout', text: null, expertId: 'c1' },
+          { choiceId: 'c9', text: 'После ухода', expertId: null },
+        ],
+      }),
+    ],
+    [],
+    [
+      item({ id: 'played-medical', bestScore: 40 }),
+      item({ id: 'fresh-medical', title: 'Аллергия' }),
+      item({ id: 'safety', category: 'safety' }),
+    ],
+  )
+  // medical 4, communication 2+3, safety 5, conflict 6, service 3; no service scenario to offer.
+  expect(p.growth).toMatchObject({
+    weakest: { key: 'service', points: 3, othersAverage: 5 },
+    decisions: 5,
+    timeoutPercent: 20,
+    offExpert: [
+      { category: 'safety', percent: 100, decisions: 1 },
+      { category: 'medical', percent: 67, decisions: 3 },
+    ],
+    topMistake: {
+      scenarioTitle: 'Пассажиру плохо в вагоне бизнес-класса',
+      text: 'Поднять пассажира',
+      count: 2,
+    },
+    recommended: null,
+  })
+})
+
+test('the recommendation is an unplayed scenario in the weakest category first', () => {
+  const p = profileFor(
+    USER,
+    [run({ competencyDeltas: { conflict: 9, safety: 9, service: 9, communication: 9 } })],
+    [],
+    [
+      item({ id: 'played-medical', bestScore: 40 }),
+      item({ id: 'fresh-medical', title: 'Аллергия' }),
+      item({ id: 'safety', category: 'safety' }),
+    ],
+  )
+  expect(p.growth?.weakest.key).toBe('medical')
+  expect(p.growth?.recommended).toEqual({ id: 'fresh-medical', title: 'Аллергия' })
+  expect(p.growth?.topMistake).toBeNull()
+})
+
+test('no runs, no growth zones; decisions never reach the wire', () => {
+  expect(profileFor(USER, [], []).growth).toBeNull()
+  expect(profileFor(USER, [run()], []).recentSessions[0]).not.toHaveProperty('decisions')
 })

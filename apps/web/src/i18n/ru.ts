@@ -1,5 +1,9 @@
 import type { AchievementCode, Competency, LevelKey } from '@p400/shared'
 
+// «2 раза», but «1 раз» and «5 раз»: only the «few» form differs.
+const times = (n: number) =>
+  `${n} ${new Intl.PluralRules('ru').select(n) === 'few' ? 'раза' : 'раз'}`
+
 /**
  * All user-facing copy lives here. Components must not hard-code Russian strings.
  */
@@ -113,6 +117,29 @@ export const ru = {
     historyEmpty: 'Пока ни одного завершённого сценария.',
     expertRun: 'Путь наставника',
     progress: 'Прогресс уровня',
+    // «Зоны роста»: conclusions, not a table. Built from GET /api/me's `growth`.
+    growth: {
+      title: 'Зоны роста',
+      weakest: (axis: string, points: number, others: number) =>
+        `Слабее всего сейчас «${axis}»: ${points} при среднем ${others} по остальным компетенциям.`,
+      offExpert: (category: string, percent: number) =>
+        `В теме «${category}» с выбором наставника расходятся ${percent}\u00a0% ваших решений`,
+      allExpert: 'Во всех темах ваши решения совпадают с выбором наставника',
+      timeouts: (percent: number) =>
+        percent > 0
+          ? `; время на выбор истекло в ${percent}\u00a0% случаев.`
+          : '; ни одного решения по таймауту.',
+      // Choice texts carry their own «»; nested quotes are „“ in Russian typography.
+      mistake: (text: string, title: string, count: number) => {
+        const quoted = `«${text.replaceAll('«', '„').replaceAll('»', '“')}» в сценарии «${title}»`
+        return count > 1
+          ? `Самая частая ошибка — ${quoted} (${times(count)}).`
+          : `Ошибка для разбора — ${quoted}.`
+      },
+      noDecisions: 'Выводы о решениях и таймаутах появятся после следующей поездки.',
+      recommended: 'Рекомендуем',
+      start: 'Пройти',
+    },
   },
   leaderboard: {
     title: 'Рейтинг проводников',

@@ -1,8 +1,14 @@
 'use client'
 
-import { COMPETENCY_LEVELS, type MeResponse, type ProfileCompetency } from '@p400/shared'
+import {
+  COMPETENCY_LEVELS,
+  type GrowthZones,
+  type MeResponse,
+  type ProfileCompetency,
+} from '@p400/shared'
 import { useQuery } from '@tanstack/react-query'
 import { Lock } from 'lucide-react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import {
@@ -14,6 +20,7 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import {
+  buttonClass,
   Card,
   Chip,
   Eyebrow,
@@ -100,6 +107,51 @@ function Radars({ competencies }: { competencies: ProfileCompetency[] }) {
   )
 }
 
+/** Two or three sentences the server already concluded, then one scenario to go and play. */
+function Growth({ growth: g }: { growth: GrowthZones }) {
+  const t = ru.profile.growth
+  const worst = g.offExpert[0]
+  return (
+    <section className="flex flex-col gap-3">
+      <SectionTitle>{t.title}</SectionTitle>
+      <Card className="flex flex-col gap-4">
+        <div className="text-foreground flex flex-col gap-2 text-sm leading-relaxed">
+          <p>
+            {t.weakest(ru.competencies[g.weakest.key], g.weakest.points, g.weakest.othersAverage)}
+          </p>
+          {g.decisions === 0 ? (
+            <p className="text-muted-foreground">{t.noDecisions}</p>
+          ) : (
+            <p>
+              {worst && worst.percent > 0
+                ? t.offExpert(ru.competencies[worst.category], worst.percent)
+                : t.allExpert}
+              {t.timeouts(g.timeoutPercent)}
+            </p>
+          )}
+          {g.topMistake && (
+            <p>{t.mistake(g.topMistake.text, g.topMistake.scenarioTitle, g.topMistake.count)}</p>
+          )}
+        </div>
+        {g.recommended && (
+          <div className="border-border flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-1">
+              <Eyebrow>{t.recommended}</Eyebrow>
+              <p className="text-sm font-semibold">{g.recommended.title}</p>
+            </div>
+            <Link
+              href={`/play/${g.recommended.id}`}
+              className={cn(buttonClass({ variant: 'primary' }), 'w-full sm:w-auto')}
+            >
+              {t.start}
+            </Link>
+          </div>
+        )}
+      </Card>
+    </section>
+  )
+}
+
 export default function ProfilePage() {
   const router = useRouter()
   const me = useQuery({
@@ -174,6 +226,8 @@ export default function ProfilePage() {
           </ul>
         </Card>
       </section>
+
+      {d.growth && <Growth growth={d.growth} />}
 
       <section className="flex flex-col gap-3">
         <SectionTitle>{ru.profile.badges}</SectionTitle>

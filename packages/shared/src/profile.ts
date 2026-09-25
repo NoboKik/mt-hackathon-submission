@@ -8,7 +8,8 @@
 // would only buy a type-only import cycle.
 
 import { ACHIEVEMENT_CODES, type AchievementCode } from './achievements'
-import { COMPETENCIES, type Competency, type Outcome } from './schema'
+import type { ScenarioListItem } from './api'
+import { COMPETENCIES, type Competency, type Outcome, type Scenario } from './schema'
 
 /** Стажёр → Проводник → Старший → Наставник. Cosmetic, but they are what the profile screen shows. */
 export type LevelKey = 'trainee' | 'conductor' | 'senior' | 'mentor'
@@ -52,7 +53,7 @@ export type ProfileSession = {
   id: string
   scenarioId: string
   title: string
-  category: string
+  category: Competency
   difficulty: number
   outcome: Outcome
   score: number
@@ -63,6 +64,108 @@ export type ProfileSession = {
   competencyDeltas: Partial<Record<Competency, number>>
   /** Did this run take every choice the expert path names. */
   onExpertPath: boolean
+  /** Server-side input for the growth zones; profileFor strips it from the wire. */
+  decisions: ProfileDecision[]
+}
+
+/**
+ * One step of a stored path. `expertId` is the expert choice at that node, null once the run
+ * has left the expert route — a node the expert never reaches has no "right" answer to miss.
+ * `text` is null for a timeout (choiceId 'timeout') or a choice the content no longer has.
+ */
+export type ProfileDecision = { choiceId: string; text: string | null; expertId: string | null }
+
+export function decisionsOf(
+  scenario: Scenario,
+  path: readonly { nodeId: string; choiceId: string }[],
+): ProfileDecision[] {
+  // Not debriefFor: that throws on content drift, and a stale path must not 500 the profile.
+  const success = Object.values(scenario.nodes).find(
+    (n) => n.type === 'end' && n.outcome === 'success',
+  )
+  const expert = new Set(success?.type === 'end' ? success.debrief.expertPath : [])
+  return path.map(({ nodeId, choiceId }) => {
+    const node = Object.hasOwn(scenario.nodes, nodeId) ? scenario.nodes[nodeId] : undefined
+    const choices = node?.type === 'choice' ? node.choices : []
+    return {
+      choiceId,
+      text: choices.find((c) => c.id === choiceId)?.text ?? null,
+      expertId: choices.find((c) => expert.has(c.id))?.id ?? null,
+    }
+  })
+}
+
+/**
+ * «Зоны роста»: the conclusions the profile states in words. Percentages are integers. Null on
+ * an account with no finished runs — there is nothing to conclude from.
+ */
+export type GrowthZones = {
+  weakest: { key: Competency; points: number; othersAverage: number }
+  decisions: number
+  timeoutPercent: number
+  /** Off-expert share per scenario category, worst first. Only decisions at expert nodes count. */
+  offExpert: { category: Competency; percent: number; decisions: number }[]
+  /** The off-expert choice picked most often, across every run. */
+  topMistake: { scenarioTitle: string; text: string; count: number } | null
+  /** A curated scenario in the weakest category: unplayed first, then the lowest best score. */
+  recommended: { id: string; title: string } | null
+}
+
+const percent = (part: number, whole: number) => Math.round((100 * part) / whole)
+
+export function growthZones(
+  sessions: readonly ProfileSession[],
+  competencies: readonly ProfileCompetency[],
+  catalogue: readonly ScenarioListItem[],
+): GrowthZones | null {
+  if (sessions.length === 0) return null
+
+  // Ties go to the earlier axis in COMPETENCIES order: stable, and the radar reads the same way.
+  const weakest = competencies.reduce((min, c) => (c.points < min.points ? c : min))
+  const others = competencies.filter((c) => c !== weakest)
+  const othersAverage = Math.round(others.reduce((sum, c) => sum + c.points, 0) / others.length)
+
+  const all = sessions.flatMap((s) => s.decisions.map((d) => ({ ...d, s })))
+  const judged = all.filter((d) => d.expertId !== null)
+
+  const byCategory = new Map<Competency, { off: number; total: number }>()
+  const mistakes = new Map<string, { scenarioTitle: string; text: string; count: number }>()
+  for (const d of judged) {
+    const row = byCategory.get(d.s.category) ?? { off: 0, total: 0 }
+    row.total++
+    if (d.choiceId !== d.expertId) {
+      row.off++
+      // Choice ids are only unique inside a scenario (every file has a c1), hence the pair key.
+      const key = `${d.s.scenarioId}/${d.choiceId}`
+      if (d.text !== null) {
+        const m = mistakes.get(key) ?? { scenarioTitle: d.s.title, text: d.text, count: 0 }
+        m.count++
+        mistakes.set(key, m)
+      }
+    }
+    byCategory.set(d.s.category, row)
+  }
+
+  const recommended = catalogue
+    .filter((s) => s.category === weakest.key)
+    // Stable sort, so equal scores keep the catalogue's difficulty order.
+    .sort((a, b) => (a.bestScore ?? -1) - (b.bestScore ?? -1))[0]
+
+  return {
+    weakest: { key: weakest.key, points: weakest.points, othersAverage },
+    decisions: all.length,
+    timeoutPercent: all.length
+      ? percent(all.filter((d) => d.choiceId === 'timeout').length, all.length)
+      : 0,
+    offExpert: [...byCategory]
+      .map(([category, r]) => ({ category, percent: percent(r.off, r.total), decisions: r.total }))
+      .sort((a, b) => b.percent - a.percent),
+    topMistake: [...mistakes.values()].reduce<GrowthZones['topMistake']>(
+      (top, m) => (m.count > (top?.count ?? 0) ? m : top),
+      null,
+    ),
+    recommended: recommended ? { id: recommended.id, title: recommended.title } : null,
+  }
 }
 
 export type MeUser = {
@@ -100,13 +203,15 @@ export type MeResponse = {
   attempts: number
   competencies: ProfileCompetency[]
   achievements: ProfileAchievement[]
-  recentSessions: ProfileSession[]
+  recentSessions: Omit<ProfileSession, 'decisions'>[]
+  growth: GrowthZones | null
 }
 
 export function profileFor(
   user: MeUser,
   sessions: readonly ProfileSession[],
   earned: readonly EarnedAchievement[],
+  catalogue: readonly ScenarioListItem[] = [],
 ): MeResponse {
   // Best score per scenario, the same rule the leaderboard and the seed use: a replay raises your
   // total, it does not add to it.
@@ -121,6 +226,12 @@ export function profileFor(
       raw.set(key, (raw.get(key) ?? 0) + (s.competencyDeltas[key] ?? 0))
   }
   const earnedAt = new Map(earned.map((a) => [a.code, a.earnedAt]))
+  // All five, in COMPETENCIES order, even at zero: the radar needs five axes on a fresh account.
+  const competencies = COMPETENCIES.map((key) => {
+    const rawPoints = raw.get(key) ?? 0
+    const points = Math.max(0, rawPoints)
+    return { key, raw: rawPoints, points, level: competencyLevel(points) }
+  })
 
   return {
     user,
@@ -130,14 +241,10 @@ export function profileFor(
     nextLevelXp: level.nextLevelXp,
     scenariosFinished: best.size,
     attempts: sessions.length,
-    // All five, in COMPETENCIES order, even at zero: the radar needs five axes on a fresh account.
-    competencies: COMPETENCIES.map((key) => {
-      const rawPoints = raw.get(key) ?? 0
-      const points = Math.max(0, rawPoints)
-      return { key, raw: rawPoints, points, level: competencyLevel(points) }
-    }),
+    competencies,
     achievements: ACHIEVEMENT_CODES.map((code) => ({ code, earnedAt: earnedAt.get(code) ?? null })),
-    // Already newest-first from the query; copied so the response never aliases the caller's array.
-    recentSessions: [...sessions],
+    // Already newest-first from the query. The decisions stay server-side: nothing renders them.
+    recentSessions: sessions.map(({ decisions: _, ...s }) => s),
+    growth: growthZones(sessions, competencies, catalogue),
   }
 }
