@@ -91,3 +91,11 @@ test('the demo user keeps at least two badges locked', () => {
   expect(locked).toContain('first-aid')
   expect(locked).toContain('flawless')
 })
+
+test('everyone has a crew, and the demo user has crewmates to rank against', () => {
+  const { users } = run()
+  for (const u of users) expect(u.crew).toMatch(/^Бригада № \d+$/)
+  const demo = users[0]
+  const mates = users.filter((u) => u.depot === demo.depot && u.crew === demo.crew)
+  expect(mates.length).toBeGreaterThanOrEqual(5)
+})

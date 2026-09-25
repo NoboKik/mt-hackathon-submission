@@ -115,6 +115,9 @@ export const ru = {
   },
   leaderboard: {
     title: 'Рейтинг проводников',
+    scopes: { crew: 'Бригада', depot: 'Депо', company: 'Компания' },
+    scope: 'Охват рейтинга',
+    period: 'Период',
     week: 'Неделя',
     all: 'За всё время',
     allDepots: 'Все депо',

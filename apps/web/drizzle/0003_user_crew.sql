@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "crew" text DEFAULT '' NOT NULL;

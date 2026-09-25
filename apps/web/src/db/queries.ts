@@ -304,13 +304,15 @@ export async function leaderboardTotals(period: LeaderboardPeriod): Promise<Cach
            ${users.displayName} as "displayName",
            ${users.position} as "position",
            ${users.depot} as "depot",
+           ${users.crew} as "crew",
            ${users.avatar} as "avatar",
            coalesce(sum(best.score), 0)::int as "total",
            count(best.scenario_id)::int as "scenarios",
            rank() over (order by coalesce(sum(best.score), 0) desc)::int as "rank"
     from ${users}
     left join best on best.user_id = ${users.id}
-    group by ${users.id}, ${users.displayName}, ${users.position}, ${users.depot}, ${users.avatar}
+    group by ${users.id}, ${users.displayName}, ${users.position}, ${users.depot}, ${users.crew},
+             ${users.avatar}
     order by "rank", "displayName"
   `)) as unknown as LeaderboardRow[]
 

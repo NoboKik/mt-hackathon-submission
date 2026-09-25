@@ -23,6 +23,8 @@ export const users = pgTable('users', {
   displayName: text('display_name').notNull(),
   position: text('position').notNull(),
   depot: text('depot').notNull(),
+  // Бригада within the depot; '' = not assigned yet (pnpm user:add without --crew).
+  crew: text('crew').notNull().default(''),
   avatar: text('avatar'),
   createdAt: tstz('created_at').notNull().defaultNow(),
 })

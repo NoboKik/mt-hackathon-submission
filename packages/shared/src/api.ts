@@ -32,9 +32,15 @@ export type LoginBody = z.infer<typeof LoginBody>
 export type AdminGraphResponse = ScenarioGraph
 
 export type LeaderboardPeriod = 'week' | 'all'
+export const LEADERBOARD_SCOPES = ['crew', 'depot', 'company'] as const
+export type LeaderboardScope = (typeof LEADERBOARD_SCOPES)[number]
 
-/** Query string for GET /leaderboard. Both parts are optional; `all` is the default board. */
+/**
+ * Query string for GET /leaderboard. Every part is optional: the default board is the viewer's
+ * own crew, all time. `depot` filters the company scope only; crew and depot are always the viewer's.
+ */
 export const LeaderboardQuery = z.object({
+  scope: z.enum(LEADERBOARD_SCOPES).default('crew'),
   period: z.enum(['week', 'all']).default('all'),
   depot: z.string().min(1).optional(),
 })
@@ -45,6 +51,8 @@ export type LeaderboardRow = {
   displayName: string
   position: string
   depot: string
+  /** Бригада within the depot; '' when not assigned. */
+  crew: string
   avatar: string | null
   /** Sum of the best score per scenario — replays raise it, they don't add to it. */
   total: number
@@ -55,15 +63,16 @@ export type LeaderboardRow = {
 }
 
 export type LeaderboardResponse = {
+  scope: LeaderboardScope
   period: LeaderboardPeriod
-  /** The depot filter in force, or null for every depot. */
+  /** The company scope's depot filter, or null (always null in the crew and depot scopes). */
   depot: string | null
   /** Every depot on the board, not just the filtered one — this is the filter's own options list. */
   depots: string[]
   /** When the cached totals were computed, ISO 8601. */
   updatedAt: string
   top: LeaderboardRow[]
-  /** The viewer's own row, ranked among the rows shown. Null exactly when the depot filter excludes them. */
+  /** The viewer's own row, ranked among the rows shown. Null exactly when the company depot filter excludes them. */
   me: LeaderboardRow | null
 }
 

@@ -91,6 +91,14 @@ const DEPOTS = [
   ['Депо Тверь', 10],
 ] as const
 
+// Бригады per depot, handed out round-robin in generation order: no rnd() draws, so adding them
+// reshuffled nobody. The demo user's «Бригада № 3» comes first in Москва-Октябрьская.
+const CREWS: Record<(typeof DEPOTS)[number][0], string[]> = {
+  'Депо Москва-Октябрьская': ['Бригада № 3', 'Бригада № 7'],
+  'Депо Санкт-Петербург-Московский': ['Бригада № 1', 'Бригада № 4'],
+  'Депо Тверь': ['Бригада № 2'],
+}
+
 const OUTCOMES = [
   ['success', 55],
   ['partial', 30],
@@ -109,6 +117,7 @@ const DEMO = {
   displayName: 'Анна Соколова',
   position: 'Проводник',
   depot: 'Депо Москва-Октябрьская',
+  crew: 'Бригада № 3',
 }
 
 // NOTE: seeded history predates real timers, so every decision gets the middle of the
@@ -242,13 +251,18 @@ export function generateSeedData(list: Scenario[], passwordHash: string, now = D
     const email = emailFor(first, last)
     if (taken.has(email)) continue
     taken.add(email)
+    // Position before depot: the order the draws have always had.
+    const position = weighted(rnd, POSITIONS)
+    const depot = weighted(rnd, DEPOTS)
+    const inDepot = crew.filter((u) => u.depot === depot).length + (depot === DEMO.depot ? 1 : 0)
     crew.push({
       id: randomUUID(),
       email,
       passwordHash,
       displayName: `${first} ${last}`,
-      position: weighted(rnd, POSITIONS),
-      depot: weighted(rnd, DEPOTS),
+      position,
+      depot,
+      crew: CREWS[depot][inDepot % CREWS[depot].length],
     })
   }
 

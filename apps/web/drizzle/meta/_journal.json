@@ -22,6 +22,13 @@
       "when": 1790013035377,
       "tag": "0002_scenario_source",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790343771789,
+      "tag": "0003_user_crew",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,12 @@
 'use client'
 
-import type { LeaderboardPeriod, LeaderboardResponse, LeaderboardRow } from '@p400/shared'
+import {
+  LEADERBOARD_SCOPES,
+  type LeaderboardPeriod,
+  type LeaderboardResponse,
+  type LeaderboardRow,
+  type LeaderboardScope,
+} from '@p400/shared'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -13,6 +19,55 @@ const PERIODS: { key: LeaderboardPeriod; label: string }[] = [
   { key: 'week', label: ru.leaderboard.week },
   { key: 'all', label: ru.leaderboard.all },
 ]
+const SCOPES = LEADERBOARD_SCOPES.map((key) => ({ key, label: ru.leaderboard.scopes[key] }))
+
+/**
+ * Segmented control: one well, the active option a filled pill inside it. `quiet` is the
+ * secondary control — a raised neutral pill, so only one control on the screen carries the accent.
+ */
+function Segmented<K extends string>({
+  options,
+  value,
+  onChange,
+  label,
+  quiet,
+  className,
+}: {
+  options: { key: K; label: string }[]
+  value: K
+  onChange: (key: K) => void
+  label: string
+  quiet?: boolean
+  className?: string
+}) {
+  return (
+    <div
+      className={cn('flex w-full rounded-full bg-muted p-1', className)}
+      role="tablist"
+      aria-label={label}
+    >
+      {options.map((o) => (
+        <button
+          key={o.key}
+          type="button"
+          role="tab"
+          aria-selected={value === o.key}
+          onClick={() => onChange(o.key)}
+          className={cn(
+            'flex h-10 flex-1 items-center justify-center rounded-full px-4 text-sm font-semibold whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:flex-none',
+            value !== o.key
+              ? 'text-muted-foreground hover:text-foreground'
+              : quiet
+                ? 'bg-card text-foreground shadow-card'
+                : 'bg-brand text-primary-foreground shadow-card',
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 /** ISO → «21 сент., 14:03». Locale tag, not copy — the words come from Intl. */
 function formatUpdated(iso: string) {
@@ -31,7 +86,15 @@ function formatUpdated(iso: string) {
  * surface, so the rows carry nothing but a divider; twenty bordered boxes read as a
  * wireframe, one card with twenty rows reads as a table.
  */
-function Row({ row, isMe }: { row: LeaderboardRow; isMe: boolean }) {
+function Row({
+  row,
+  isMe,
+  scope,
+}: {
+  row: LeaderboardRow
+  isMe: boolean
+  scope: LeaderboardScope
+}) {
   // The podium is typographic on purpose: gold/silver/bronze would be three more accent
   // colours, and this app has exactly one.
   const podium = row.rank <= 3
@@ -68,7 +131,11 @@ function Row({ row, isMe }: { row: LeaderboardRow; isMe: boolean }) {
           )}
         </span>
         <span className="min-w-0 truncate text-xs text-muted-foreground">
-          {row.position} · {row.depot}
+          {/* Whatever the scope does not already fix: nothing in a crew, the crew inside a depot,
+              the depot across the company. */}
+          {[row.position, scope === 'depot' ? row.crew : scope === 'company' ? row.depot : '']
+            .filter(Boolean)
+            .join(' · ')}
         </span>
       </div>
 
@@ -84,14 +151,17 @@ function Row({ row, isMe }: { row: LeaderboardRow; isMe: boolean }) {
 
 export default function LeaderboardPage() {
   const router = useRouter()
+  const [scope, setScope] = useState<LeaderboardScope>('crew')
   const [period, setPeriod] = useState<LeaderboardPeriod>('all')
   const [depot, setDepot] = useState<string>('')
+  // The depot filter is the company view's only; the API ignores it anywhere else.
+  const depotParam = scope === 'company' ? depot : ''
 
   const board = useQuery({
-    queryKey: ['leaderboard', period, depot],
+    queryKey: ['leaderboard', scope, period, depotParam],
     queryFn: () =>
       api<LeaderboardResponse>(
-        `/leaderboard?period=${period}${depot ? `&depot=${encodeURIComponent(depot)}` : ''}`,
+        `/leaderboard?scope=${scope}&period=${period}${depotParam ? `&depot=${encodeURIComponent(depotParam)}` : ''}`,
       ),
     retry: false,
   })
@@ -106,6 +176,13 @@ export default function LeaderboardPage() {
   const meShown = !!me && !!d?.top.some((r) => r.userId === me.userId)
   const pinned = me && !meShown ? me : null
   const updated = d ? formatUpdated(d.updatedAt) : null
+  // Which crew or depot this board is: the viewer's own, read off their row.
+  const whose =
+    d?.scope === 'crew' && me
+      ? [me.crew, me.depot].filter(Boolean).join(' · ')
+      : d?.scope === 'depot' && me
+        ? me.depot
+        : null
 
   return (
     <div className="flex flex-col gap-6">
@@ -114,29 +191,19 @@ export default function LeaderboardPage() {
         <h1 className="text-display sm:text-display-lg">{ru.leaderboard.title}</h1>
       </header>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* Segmented control: one well, the active period a filled pill inside it. */}
-        <div className="flex w-full rounded-full bg-muted p-1 sm:w-auto" role="tablist">
-          {PERIODS.map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              role="tab"
-              aria-selected={period === p.key}
-              onClick={() => setPeriod(p.key)}
-              className={cn(
-                'flex h-10 flex-1 items-center justify-center rounded-full px-4 text-sm font-semibold whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:flex-none',
-                period === p.key
-                  ? 'bg-brand text-primary-foreground shadow-card'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
+      <Segmented options={SCOPES} value={scope} onChange={setScope} label={ru.leaderboard.scope} />
 
-        {d && d.depots.length > 0 && (
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Segmented
+          options={PERIODS}
+          value={period}
+          onChange={setPeriod}
+          label={ru.leaderboard.period}
+          quiet
+          className="sm:w-auto"
+        />
+
+        {scope === 'company' && d && d.depots.length > 0 && (
           <select
             value={depot}
             onChange={(e) => setDepot(e.target.value)}
@@ -154,6 +221,8 @@ export default function LeaderboardPage() {
           </select>
         )}
       </div>
+
+      {whose && <p className="-mt-3 text-sm text-muted-foreground">{whose}</p>}
 
       {board.isPending && (
         <Card pad="lg" className="text-sm text-muted-foreground">
@@ -177,7 +246,7 @@ export default function LeaderboardPage() {
           {d.top.length > 0 && (
             <ul className="divide-y divide-border">
               {d.top.map((row) => (
-                <Row key={row.userId} row={row} isMe={row.userId === me?.userId} />
+                <Row key={row.userId} row={row} isMe={row.userId === me?.userId} scope={d.scope} />
               ))}
             </ul>
           )}
@@ -186,7 +255,7 @@ export default function LeaderboardPage() {
               rule is the gap in the ranking, drawn inside the card it belongs to. */}
           {pinned && (
             <ul className={cn(d.top.length > 0 && 'border-t border-dashed border-border')}>
-              <Row row={pinned} isMe={true} />
+              <Row row={pinned} isMe={true} scope={d.scope} />
             </ul>
           )}
         </Card>

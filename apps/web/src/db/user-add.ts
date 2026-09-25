@@ -1,6 +1,6 @@
 // Creates an account, or gives an existing one a new password. There is no registration and no
 // admin panel: accounts are an operator's job, over ssh.
-//   pnpm user:add --email i.petrov@vsm400.ru --name "Иван Петров" --depot "Депо Москва-Октябрьская"
+//   pnpm user:add --email i.petrov@vsm400.ru --name "Иван Петров" --depot "Депо Москва-Октябрьская" --crew "Бригада № 3"
 //   pnpm user:add --email i.petrov@vsm400.ru --reset
 // On the server: docker compose -f infra/docker-compose.yml run --rm migrate pnpm user:add …
 // The password is generated and printed once — never passed in, so it stays out of shell history.
@@ -14,7 +14,7 @@ import { db } from './index'
 import { users } from './schema'
 
 const USAGE = `usage:
-  pnpm user:add --email <email> --name "<Имя Фамилия>" --depot "<депо>" [--position "<должность>"]
+  pnpm user:add --email <email> --name "<Имя Фамилия>" --depot "<депо>" [--crew "<бригада>"] [--position "<должность>"]
   pnpm user:add --email <email> --reset`
 
 function die(msg: string): never {
@@ -28,6 +28,7 @@ async function main() {
       email: { type: 'string' },
       name: { type: 'string' },
       depot: { type: 'string' },
+      crew: { type: 'string', default: '' },
       position: { type: 'string', default: 'Проводник' },
       reset: { type: 'boolean', default: false },
     },
@@ -52,7 +53,14 @@ async function main() {
     if (!displayName || !depot) die('--name and --depot are required')
     const rows = await db()
       .insert(users)
-      .values({ email, passwordHash, displayName, depot, position: v.position.trim() })
+      .values({
+        email,
+        passwordHash,
+        displayName,
+        depot,
+        crew: v.crew.trim(),
+        position: v.position.trim(),
+      })
       .onConflictDoNothing({ target: users.email })
       .returning({ id: users.id })
     if (!rows.length) die(`${email} already exists — use --reset for a new password`)
