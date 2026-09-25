@@ -44,6 +44,7 @@ export async function POST(req: Request) {
     steps: result.steps,
     node,
     meters: result.meters,
+    failThresholds: scenario.failThresholds,
     finished: node.type === 'end',
   }
   return NextResponse.json(res)

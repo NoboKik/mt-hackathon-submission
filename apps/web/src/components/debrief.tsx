@@ -32,16 +32,46 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
+const signed = (v: number) => `${v > 0 ? '+' : ''}${v}`
+
+/** A signed delta chip: green up, red down. Zeros are filtered out by the caller. */
+function Delta({ label, value }: { label: string; value: number }) {
+  return (
+    <li>
+      <Chip tone={value > 0 ? 'safe' : 'danger'}>
+        <span className="font-medium">{label}</span>
+        <span className="tabular-nums">{signed(value)}</span>
+      </Chip>
+    </li>
+  )
+}
+
 /**
  * One stop on the timeline. The dot hangs outside the card, over the rail drawn by the
  * parent: expert steps are the only colour on the screen, a timeout is amber, everything
- * else stays neutral so the two that matter are findable at a glance.
+ * else stays neutral so the two that matter are findable at a glance. Each step says what it
+ * moved and, off the expert path, what the expert did at the same point.
  */
 function Step({ step }: { step: DebriefStep }) {
   const timedOut = step.choiceId === 'timeout'
   const expert = step.onExpertPath
+  const all: [string, number][] = [
+    [ru.player.loyaltyShort, step.effects.loyalty],
+    [ru.player.safetyShort, step.effects.safety],
+    ...COMPETENCIES.map((key): [string, number] => [
+      ru.competencies[key],
+      step.competencies[key] ?? 0,
+    ]),
+  ]
+  const deltas = all.filter(([, v]) => v !== 0)
   return (
-    <li className={cn('relative', surface({ pad: 'sm' }), expert && 'border-safe/40 bg-safe/8')}>
+    <li
+      className={cn(
+        'relative flex flex-col gap-2.5',
+        surface({ pad: 'sm' }),
+        expert && 'border-safe/40 bg-safe/8',
+      )}
+    >
       <span
         aria-hidden="true"
         className={cn(
@@ -52,16 +82,35 @@ function Step({ step }: { step: DebriefStep }) {
         )}
       />
       {step.nodeText && (
-        <p className="mb-2 text-xs leading-relaxed text-muted-foreground">{step.nodeText}</p>
+        <p className="text-xs leading-relaxed text-muted-foreground">{step.nodeText}</p>
       )}
       <p className={cn('text-sm leading-snug', timedOut && 'font-medium text-warn-text')}>
         {step.choiceText ?? ru.debrief.timeoutStep}
       </p>
-      {expert && (
-        <Chip tone="safe" className="mt-2.5">
+      {step.consequenceText && (
+        <p className="rounded-card bg-muted p-3 text-xs leading-relaxed text-muted-foreground">
+          {step.consequenceText}
+        </p>
+      )}
+      {deltas.length > 0 && (
+        <ul className="flex flex-wrap gap-1.5" aria-label={ru.debrief.stepEffects}>
+          {deltas.map(([label, value]) => (
+            <Delta key={label} label={label} value={value} />
+          ))}
+        </ul>
+      )}
+      {expert ? (
+        <Chip tone="safe" className="self-start">
           <Check className="size-3.5" aria-hidden="true" />
           {ru.debrief.onExpert}
         </Chip>
+      ) : (
+        step.expertChoice && (
+          <p className="rounded-card border-l-2 border-safe bg-safe/8 p-3 text-sm leading-snug">
+            <span className="font-semibold text-safe-text">{ru.debrief.better}: </span>
+            {step.expertChoice.text}
+          </p>
+        )
       )}
     </li>
   )
@@ -126,15 +175,7 @@ export function Debrief({ sessionId, auto = false }: { sessionId: string; auto?:
         <Section title={ru.debrief.competencies}>
           <ul className="flex flex-wrap gap-2">
             {deltas.map(([key, value]) => (
-              <li key={key}>
-                <Chip tone={value > 0 ? 'safe' : 'danger'}>
-                  <span className="font-medium">{ru.competencies[key]}</span>
-                  <span className="tabular-nums">
-                    {value > 0 ? '+' : ''}
-                    {value}
-                  </span>
-                </Chip>
-              </li>
+              <Delta key={key} label={ru.competencies[key]} value={value} />
             ))}
           </ul>
         </Section>

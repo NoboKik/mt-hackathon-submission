@@ -4,6 +4,7 @@ import {
   choose,
   clamp,
   debriefFor,
+  debriefSteps,
   EngineError,
   enter,
   shuffled,
@@ -150,4 +151,36 @@ test('shuffled is a stable permutation that varies by seed', () => {
   expect([...shuffled(xs, 7, 'n')].sort()).toEqual(xs)
   const orders = new Set(Array.from({ length: 50 }, (_, s) => shuffled(xs, s, 'n').join()))
   expect(orders.size).toBeGreaterThan(5)
+})
+
+test('debriefSteps replays the path: per-step deltas, consequences and the expert alternative', () => {
+  const steps = debriefSteps(
+    s,
+    [
+      { nodeId: 'n1', choiceId: 'timeout' },
+      { nodeId: 'n2', choiceId: 'c4' },
+      { nodeId: 'n3', choiceId: 'c8' },
+    ],
+    ['c1', 'c4', 'c7'],
+  )
+  expect(steps.map((x) => x.effects)).toEqual([
+    { loyalty: -15, safety: -10 },
+    { loyalty: 5, safety: 10 },
+    { loyalty: -10, safety: 5 },
+  ])
+  const [timeout, expert, off] = steps
+  expect(timeout).toMatchObject({
+    choiceText: null,
+    competencies: {},
+    consequenceText: s.nodes.n1_timeout.text,
+    onExpertPath: false,
+    expertChoice: { id: 'c1' },
+  })
+  expect(expert).toMatchObject({ onExpertPath: true, consequenceText: null })
+  expect(off).toMatchObject({
+    onExpertPath: false,
+    competencies: { communication: 1 },
+    expertChoice: { id: 'c7', text: s.nodes.n3.choices[0]?.text },
+  })
+  expect(() => debriefSteps(s, [{ nodeId: 'n1', choiceId: 'gone' }], [])).toThrow(EngineError)
 })

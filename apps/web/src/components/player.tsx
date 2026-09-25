@@ -30,6 +30,7 @@ type Run = {
   scenario: StartSessionResponse['scenario']
   node: ClientNode
   meters: Meters
+  failThresholds: Meters
   deltas?: Meters
   steps: ClientNode[]
   finished: boolean
@@ -176,6 +177,20 @@ export function Player({ scenarioId, auto = false }: { scenarioId: string; auto?
     if (deadline !== null && left === 0) submit('timeout')
   }, [deadline, left, submit])
 
+  // Keys 1–4 pick the choice with that number on screen. submit() already ignores a key
+  // pressed mid-request or off a choice node.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return
+      const node = run?.node
+      if (node?.type !== 'choice') return
+      const choice = node.choices[Number(e.key) - 1]
+      if (choice) submit(choice.id)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [run, submit])
+
   if (error) {
     return (
       <div className={cn(page, 'flex flex-col items-center gap-5 pt-24 text-center')}>
@@ -208,7 +223,7 @@ export function Player({ scenarioId, auto = false }: { scenarioId: string; auto?
       {/* The meters sit in the page and stick under the header. top-14 is the header's height;
           the extra 4 keeps a gap so the card does not butt against the red bar. */}
       <div className="border-border bg-card rounded-card shadow-card sticky top-18 z-10 border p-4">
-        <MeterPair meters={run.meters} deltas={run.deltas} />
+        <MeterPair meters={run.meters} thresholds={run.failThresholds} deltas={run.deltas} />
       </div>
 
       <div key={node.id} className="flex flex-col gap-5">
@@ -257,6 +272,7 @@ export function Player({ scenarioId, auto = false }: { scenarioId: string; auto?
                     type="button"
                     disabled={pending}
                     onClick={() => submit(choice.id)}
+                    aria-keyshortcuts={String(i + 1)}
                     className={cn(
                       surface({ interactive: true, pad: 'sm' }),
                       'group flex min-h-16 w-full items-center gap-4 text-left text-base leading-snug',

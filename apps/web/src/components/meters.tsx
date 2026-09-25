@@ -71,6 +71,12 @@ function Meter({
           <span className={cn('font-semibold tabular-nums', hud ? 'text-sm' : 'text-base')}>
             {value}
           </span>
+          {/* Says what the notch on the track means: the run ends below this number. */}
+          {threshold !== undefined && (
+            <span className="text-xs text-muted-foreground tabular-nums">
+              / {ru.player.failAt} {threshold}
+            </span>
+          )}
         </span>
       </div>
       {/* A native <meter> is the semantic element, but it cannot carry the threshold marker

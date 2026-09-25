@@ -119,6 +119,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     steps: result.steps,
     node: next,
     meters: result.meters,
+    failThresholds: scenario.failThresholds,
     deltas: {
       loyalty: result.meters.loyalty - session.loyalty,
       safety: result.meters.safety - session.safety,

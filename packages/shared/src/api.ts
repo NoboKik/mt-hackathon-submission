@@ -4,7 +4,7 @@
 import { z } from 'zod'
 import type { ClientNode, MeterKey, Meters } from './engine'
 import type { ScenarioGraph } from './graph'
-import type { Competency, Outcome } from './schema'
+import type { Competency, Effects, Outcome } from './schema'
 import type { score } from './score'
 
 export type ScoreBreakdown = ReturnType<typeof score>
@@ -92,6 +92,8 @@ export type StartSessionResponse = {
   steps: ClientNode[]
   node: ClientNode
   meters: Meters
+  /** The scenario's fail lines, drawn on the HUD meters. */
+  failThresholds: Meters
   finished: boolean
 }
 
@@ -99,6 +101,7 @@ export type ChooseResponse = {
   steps: ClientNode[]
   node: ClientNode
   meters: Meters
+  failThresholds: Meters
   /** Net meter change since the previous node, for the animation. */
   deltas: Meters
   timedOut: boolean
@@ -116,6 +119,14 @@ export type DebriefStep = {
   /** null on a timeout: there was no choice. */
   choiceText: string | null
   onExpertPath: boolean
+  /** What this step did to the meters, the consequences that followed included. Clamped. */
+  effects: Effects
+  /** Empty on a timeout. */
+  competencies: Partial<Record<Competency, number>>
+  /** The consequence text that followed the choice, or null if it led straight on. */
+  consequenceText: string | null
+  /** The expert's choice at this node, when the expert path passes through it. */
+  expertChoice?: { id: string; text: string }
 }
 
 export type DebriefResponse = {

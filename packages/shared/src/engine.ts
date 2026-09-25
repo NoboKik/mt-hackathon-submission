@@ -2,6 +2,7 @@
 // which is what makes every rule here testable. The server is the only place meters and
 // outcomes are computed; the client renders what these functions hand back.
 
+import type { DebriefStep } from './api'
 import type { Choice, Effects, Node, Outcome, Scenario } from './schema'
 
 export type Meters = { loyalty: number; safety: number }
@@ -174,4 +175,43 @@ export function debriefFor(scenario: Scenario, endId: string): Debrief {
   const node = nodeAt(scenario, endId)
   if (node.type !== 'end') throw new EngineError(`node "${endId}" is not an end node`)
   return node.debrief
+}
+
+/**
+ * Replays a stored path through the engine to recover what each step did: the meter deltas
+ * (clamped, timeouts included), the competencies, the consequence text that followed, and the
+ * expert choice at the same node. Effects are deterministic, so the stored path is enough and
+ * nothing per-step has to be persisted. Throws EngineError if the content no longer has a node
+ * or choice the path went through.
+ */
+export function debriefSteps(
+  scenario: Scenario,
+  path: { nodeId: string; choiceId: string }[],
+  expertPath: string[],
+): DebriefStep[] {
+  let meters = enter(scenario, scenario.start, scenario.initial).meters
+  return path.map(({ nodeId, choiceId }) => {
+    const node = nodeAt(scenario, nodeId)
+    // choose() below throws for anything but a choice node, so this never falls through.
+    const choices = node.type === 'choice' ? node.choices : []
+    const result = choose(scenario, nodeId, choiceId, meters)
+    const effects = {
+      loyalty: result.meters.loyalty - meters.loyalty,
+      safety: result.meters.safety - meters.safety,
+    }
+    meters = result.meters
+    const consequences = result.steps.flatMap((s) => (s.type === 'consequence' ? [s.text] : []))
+    const expert = choices.find((c) => expertPath.includes(c.id))
+    return {
+      nodeId,
+      nodeText: node.type === 'choice' ? node.text : '',
+      choiceId,
+      choiceText: result.choice?.text ?? null,
+      onExpertPath: expertPath.includes(choiceId),
+      effects,
+      competencies: result.choice?.competencies ?? {},
+      consequenceText: consequences.length > 0 ? consequences.join(' ') : null,
+      ...(expert ? { expertChoice: { id: expert.id, text: expert.text } } : {}),
+    }
+  })
 }

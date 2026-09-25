@@ -3,6 +3,7 @@ import {
   type DebriefResponse,
   type DebriefStep,
   debriefFor,
+  debriefSteps,
   EngineError,
   type MeterKey,
   type Scenario,
@@ -37,24 +38,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   // Seeded history is finished but parked on its start node, and a threshold end can only
   // borrow a debrief from a success ending the scenario may not have. Neither has one to show.
   let debrief: Debrief
+  let yourPath: DebriefStep[]
   try {
     debrief = debriefFor(scenario, session.currentNode)
+    // Replays the stored path, so it also fails if the content lost a node the run went through.
+    yourPath = debriefSteps(scenario, session.path, debrief.expertPath)
   } catch (e) {
     if (e instanceof EngineError) return fail(409, ru.errors.debriefUnavailable)
     throw e
   }
   const texts = choiceTexts(scenario)
-  const yourPath: DebriefStep[] = session.path.map((step) => {
-    const node = scenario.nodes[step.nodeId]
-    return {
-      nodeId: step.nodeId,
-      nodeText: node?.type === 'choice' ? node.text : '',
-      choiceId: step.choiceId,
-      // null on a timeout: the player picked nothing, so there is nothing to quote back.
-      choiceText: texts.get(step.choiceId) ?? null,
-      onExpertPath: debrief.expertPath.includes(step.choiceId),
-    }
-  })
 
   const meters = { loyalty: session.loyalty, safety: session.safety }
   // The synthetic end is stored as an id, not a node, so re-derive the meter that broke from the

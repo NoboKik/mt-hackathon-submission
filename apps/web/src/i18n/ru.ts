@@ -62,6 +62,8 @@ export const ru = {
     loading: 'Готовим сценарий…',
     // The countdown is announced to screen readers only at these points, not every tick.
     timerLabel: 'Таймер решения',
+    // Beside each HUD meter: the value below which the run ends.
+    failAt: 'порог',
   },
   // Scenario JSON carries speaker keys; the narrator is never shown.
   speakers: {
@@ -90,6 +92,8 @@ export const ru = {
     competencies: 'Компетенции',
     timeoutStep: 'Время вышло',
     onExpert: 'Совпало с наставником',
+    better: 'Лучше',
+    stepEffects: 'Что изменил этот шаг',
     replay: 'Пройти ещё раз',
     toCatalogue: 'К каталогу',
     unlocked: 'Новые достижения',
