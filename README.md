@@ -19,8 +19,8 @@ https://mt-hackathon.nobokik.dev/login?invite=<код-приглашения>
 Нужен только Docker с Compose v2.
 
 ```bash
-git clone https://github.com/NoboKik/mt-hackathon.git
-cd mt-hackathon
+git clone https://github.com/NoboKik/mt-hackathon-submission.git
+cd mt-hackathon-submission
 cp infra/.env.example infra/.env
 docker compose -f infra/docker-compose.yml up --build
 ```
@@ -437,9 +437,7 @@ pnpm user:add           # создать учётную запись или сб
    apt-get install -y git ufw
    ufw allow 22,80,443/tcp
    ufw enable
-   ssh-keygen -t ed25519 -N '' -f ~/.ssh/github_deploy && cat ~/.ssh/github_deploy.pub
-   printf 'Host github.com\n  IdentityFile ~/.ssh/github_deploy\n' >> ~/.ssh/config
-   git clone git@github.com:NoboKik/mt-hackathon.git /opt/p400
+   git clone https://github.com/NoboKik/mt-hackathon-submission.git /opt/p400
    cd /opt/p400
    ```
 
