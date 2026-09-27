@@ -356,7 +356,7 @@ export const ru = {
     demoUserMissing: 'Демо-доступ на этом сервере не настроен.',
     scenarioNotFound: 'Сценарий не найден.',
     sessionNotFound: 'Сессия не найдена.',
-    staleStep: 'Этот шаг уже сделан. Обновите страницу.',
+    staleStep: 'Этот шаг уже засчитан. Начните сценарий заново.',
     sessionNotFinished: 'Сценарий ещё не завершён.',
     debriefUnavailable: 'Разбор для этой сессии недоступен.',
     integrationOff: 'Интеграционный API на этом сервере выключен.',
