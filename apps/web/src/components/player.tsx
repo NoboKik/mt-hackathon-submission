@@ -170,6 +170,15 @@ export function Player({
     },
   })
 
+  // Leaving mid-run abandons it (a reload lands back on the intro), so the browser asks first.
+  const inProgress = run !== null && !run.finished
+  useEffect(() => {
+    if (!inProgress) return
+    const onUnload = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', onUnload)
+    return () => window.removeEventListener('beforeunload', onUnload)
+  }, [inProgress])
+
   const node = run?.node
   const isChoice = node?.type === 'choice'
   const pending = choose.isPending
