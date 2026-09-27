@@ -8,7 +8,7 @@ import {
   userProfile,
 } from '@/db/queries'
 import { fail } from '@/lib/api'
-import { currentUserId } from '@/lib/auth'
+import { canViewCrewAnalytics, currentUserId } from '@/lib/auth'
 
 export async function GET() {
   const userId = await currentUserId()
@@ -28,12 +28,9 @@ export async function GET() {
     leaderboardTotals('all'),
   ])
   // Typed, so a change to the aggregator's shape breaks the build rather than the profile screen.
-  const res: MeResponse = profileFor(
-    user,
-    sessions,
-    earned,
-    catalogue,
-    standingFor(userId, board.rows),
-  )
+  const res: MeResponse = {
+    ...profileFor(user, sessions, earned, catalogue, standingFor(userId, board.rows)),
+    canViewAnalytics: canViewCrewAnalytics(user.position),
+  }
   return NextResponse.json(res)
 }

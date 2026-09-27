@@ -1,15 +1,19 @@
 import { AnalyticsQuery } from '@p400/shared'
 import { NextResponse } from 'next/server'
-import { analyticsInput, integrationInput } from '@/db/queries'
+import { analyticsInput, integrationInput, userProfile } from '@/db/queries'
 import { crewAnalytics } from '@/lib/analytics'
 import { fail } from '@/lib/api'
-import { currentUserId } from '@/lib/auth'
+import { canViewCrewAnalytics, currentUserId } from '@/lib/auth'
 import { integrationProgress } from '@/lib/integration'
 
-// Gated on any signed-in user, like the graph viewer: `users` has no role column yet.
+// Every colleague's gaps and readiness across the company: crew leads and methodists only.
+// The position is re-read on each request, so a demotion takes effect without a new sign-in.
 export async function GET(req: Request) {
   const userId = await currentUserId()
   if (!userId) return fail(401, 'unauthorized')
+  const user = await userProfile(userId)
+  if (!user) return fail(401, 'unauthorized')
+  if (!canViewCrewAnalytics(user.position)) return fail(403, 'analyticsForbidden')
 
   const params = new URL(req.url).searchParams
   const query = AnalyticsQuery.safeParse({

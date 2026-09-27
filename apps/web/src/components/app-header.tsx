@@ -1,6 +1,7 @@
 'use client'
 
-import { useQueryClient } from '@tanstack/react-query'
+import type { MeResponse } from '@p400/shared'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { LogOut, Menu, TrainFront, X } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -8,7 +9,7 @@ import { useEffect, useRef } from 'react'
 import { NotificationBell } from '@/components/notifications'
 import { ThemeToggle } from '@/components/ui'
 import { ru } from '@/i18n/ru'
-import { post } from '@/lib/client'
+import { api, post } from '@/lib/client'
 import { cn } from '@/lib/utils'
 
 const LINKS = [
@@ -62,6 +63,15 @@ export function AppHeader() {
   const drawer = useRef<HTMLDialogElement>(null)
   // The header has no auth state of its own; /login is the one page you're signed out on.
   const signedIn = pathname !== '/login'
+  // Shares the profile screen's cache entry. The analytics link waits for the server's yes:
+  // the route itself answers 403 either way, this only spares a conductor a dead end.
+  const me = useQuery({
+    queryKey: ['me'],
+    queryFn: () => api<MeResponse>('/me'),
+    enabled: signedIn,
+    retry: false,
+  })
+  const links = LINKS.filter((l) => l.href !== '/admin/analytics' || me.data?.canViewAnalytics)
 
   const signOut = async () => {
     drawer.current?.close()
@@ -98,7 +108,7 @@ export function AppHeader() {
             {signedIn && (
               <nav className="hidden sm:block">
                 <ul className="flex h-14 items-stretch">
-                  {LINKS.map((link) => (
+                  {links.map((link) => (
                     <li key={link.href}>
                       <Link
                         href={link.href}
@@ -174,7 +184,7 @@ export function AppHeader() {
 
           <nav className="mt-6">
             <ul className="flex flex-col gap-2">
-              {LINKS.map((link) => (
+              {links.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}

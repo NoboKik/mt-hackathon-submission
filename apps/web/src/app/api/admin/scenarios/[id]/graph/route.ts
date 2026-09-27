@@ -20,8 +20,8 @@ function conditionLabel(c: Condition, scenario: Scenario): string {
   return parts.join(ru.admin.branchAnd)
 }
 
-// `users` has no role column, so this is gated on any signed-in user. A real admin gate is a
-// migration and its own change.
+// Open to any signed-in user: the graph is course content with no personal data in it, unlike
+// crew analytics, which is limited to crew leads and methodists.
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const userId = await currentUserId()
   if (!userId) return fail(401, 'unauthorized')

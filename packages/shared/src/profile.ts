@@ -280,6 +280,8 @@ export type MeResponse = {
   readiness: PromotionReadiness
   /** Null when the viewer is missing from the board handed in. */
   standing: Standing | null
+  /** Whether GET /admin/analytics will answer this user; the server decides, the header only hides a link. */
+  canViewAnalytics: boolean
 }
 
 export function profileFor(
@@ -288,7 +290,7 @@ export function profileFor(
   earned: readonly EarnedAchievement[],
   catalogue: readonly ScenarioListItem[] = [],
   standing: Standing | null = null,
-): MeResponse {
+): Omit<MeResponse, 'canViewAnalytics'> {
   // Best score per scenario, the same rule the leaderboard and the seed use: a replay raises your
   // total, it does not add to it.
   const best = new Map<string, number>()

@@ -192,6 +192,7 @@ paths:
                     - { key: communication, value: 7, target: 2, met: true }
                     - { key: serviceBest, value: 107, target: 100, met: true }
                 standing: { total: 420, percentile: 64, crewAverage: 310, crewSize: 6 }
+                canViewAnalytics: false
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /api/scenarios:
@@ -509,7 +510,9 @@ paths:
     get:
       tags: [admin]
       summary: Аналитика бригады, депо или компании
-      description: По завершённым прохождениям курируемых сценариев. Без фильтра — вся компания.
+      description: |
+        По завершённым прохождениям курируемых сценариев. Без фильтра — вся компания.
+        Доступна начальникам поездов и методистам (поле `position` сотрудника); остальным — 403.
       parameters:
         - name: depot
           in: query
@@ -543,6 +546,12 @@ paths:
                   - { id: 5a2b9e4c-0f1d-4c3b-8e7a-6d5f4c3b2a19, name: Анна Смирнова, crew: Бригада № 3, ready: true, percent: 100 }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Должность пользователя — не «Начальник поезда» и не «Методист»
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+              example: { error: analyticsForbidden }
 
   /api/integration/progress:
     get:
@@ -739,6 +748,7 @@ components:
             - integrationOff
             - passwordRequired
             - emailTaken
+            - analyticsForbidden
         issues:
           type: array
           description: Только на 400 из-за валидации — массив ошибок Zod
@@ -926,7 +936,7 @@ components:
 
     MeResponse:
       type: object
-      required: [user, xp, level, levelMinXp, nextLevelXp, scenariosFinished, attempts, competencies, achievements, recentSessions, growth, readiness, standing]
+      required: [user, xp, level, levelMinXp, nextLevelXp, scenariosFinished, attempts, competencies, achievements, recentSessions, growth, readiness, standing, canViewAnalytics]
       properties:
         user:
           type: object
@@ -1022,6 +1032,9 @@ components:
             percentile: { type: [integer, 'null'], description: '«Лучше N % проводников»: доля остальных с меньшей суммой; null, если сравнить не с кем' }
             crewAverage: { type: [integer, 'null'], description: Средняя сумма по своей бригаде, включая себя; null без бригады }
             crewSize: { type: integer }
+        canViewAnalytics:
+          type: boolean
+          description: Открыт ли пользователю `GET /api/admin/analytics` (начальник поезда или методист)
 
     PromotionReadiness:
       description: |

@@ -97,6 +97,15 @@ export async function clearSessionCookie() {
   ;(await cookies()).delete(COOKIE)
 }
 
+/**
+ * Crew analytics lists every colleague's competency gaps and promotion readiness, so it belongs to
+ * whoever leads or trains crews, not to every conductor. `users.position` is the only role there is.
+ */
+export const ANALYTICS_POSITIONS: readonly string[] = ['Начальник поезда', 'Методист']
+
+export const canViewCrewAnalytics = (position: string) =>
+  ANALYTICS_POSITIONS.includes(position.trim())
+
 export async function currentUserId(): Promise<string | null> {
   const token = (await cookies()).get(COOKIE)?.value
   return token ? verify(token, Math.floor(Date.now() / 1000)) : null

@@ -106,6 +106,8 @@ export default function AnalyticsPage() {
     if (q.error instanceof ApiError && q.error.status === 401) router.push('/login')
   }, [q.error, router])
 
+  // A conductor who opens the URL directly: say who the screen is for instead of empty filters.
+  const forbidden = q.error instanceof ApiError && q.error.status === 403
   const d = q.data
   const crews = d?.units.find((u) => u.depot === depot)?.crews ?? []
   const weakest = d?.competencies.find((c) => c.key === d.weakest)
@@ -121,46 +123,52 @@ export default function AnalyticsPage() {
         <p className="text-sm text-muted-foreground">{t.subtitle}</p>
       </header>
 
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <select
-          value={depot}
-          onChange={(e) => {
-            setDepot(e.target.value)
-            setCrew('')
-          }}
-          aria-label={t.depot}
-          className={cn(fieldClass, 'sm:w-72')}
-        >
-          <option value="">{t.allDepots}</option>
-          {d?.units.map((u) => (
-            <option key={u.depot} value={u.depot}>
-              {u.depot}
-            </option>
-          ))}
-        </select>
-        {/* A crew only means something inside its depot: the names repeat across depots. */}
-        <select
-          value={crew}
-          onChange={(e) => setCrew(e.target.value)}
-          aria-label={t.crew}
-          disabled={!depot}
-          className={cn(fieldClass, 'sm:w-56')}
-        >
-          <option value="">{t.allCrews}</option>
-          {crews.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-      </div>
+      {forbidden ? (
+        <Card pad="lg" className="text-sm text-muted-foreground">
+          {ru.errors.analyticsForbidden}
+        </Card>
+      ) : (
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <select
+            value={depot}
+            onChange={(e) => {
+              setDepot(e.target.value)
+              setCrew('')
+            }}
+            aria-label={t.depot}
+            className={cn(fieldClass, 'sm:w-72')}
+          >
+            <option value="">{t.allDepots}</option>
+            {d?.units.map((u) => (
+              <option key={u.depot} value={u.depot}>
+                {u.depot}
+              </option>
+            ))}
+          </select>
+          {/* A crew only means something inside its depot: the names repeat across depots. */}
+          <select
+            value={crew}
+            onChange={(e) => setCrew(e.target.value)}
+            aria-label={t.crew}
+            disabled={!depot}
+            className={cn(fieldClass, 'sm:w-56')}
+          >
+            <option value="">{t.allCrews}</option>
+            {crews.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {q.isPending && (
         <Card pad="lg" className="text-sm text-muted-foreground">
           {ru.common.loading}
         </Card>
       )}
-      {q.error && (
+      {q.error && !forbidden && (
         <Card pad="lg" className="text-sm text-danger-text">
           {q.error.message}
         </Card>
