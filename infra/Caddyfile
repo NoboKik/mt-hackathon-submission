@@ -1,5 +1,5 @@
-# SITE_ADDRESS from infra/.env: unset → plain http://localhost; a domain (the server sets
-# mt-hackathon.nobokik.dev) → Caddy gets a Let's Encrypt certificate and redirects HTTP to HTTPS.
+# SITE_ADDRESS from infra/.env: unset → plain http://localhost; a domain
+# (e.g. p400.example.ru) → Caddy gets a Let's Encrypt certificate and redirects HTTP to HTTPS.
 {$SITE_ADDRESS::80} {
 	encode zstd gzip
 	reverse_proxy web:3000
