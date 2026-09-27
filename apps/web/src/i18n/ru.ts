@@ -65,6 +65,7 @@ export const ru = {
     continue: 'Дальше',
     toDebrief: 'Разбор',
     loading: 'Готовим сценарий…',
+    begin: 'Начать',
     // The countdown is announced to screen readers only at these points, not every tick.
     timerLabel: 'Таймер решения',
     // Beside each HUD meter: the value below which the run ends.

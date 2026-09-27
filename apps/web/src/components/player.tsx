@@ -120,7 +120,17 @@ function Consequence({ node }: { node: Extract<ClientNode, { type: 'consequence'
   )
 }
 
-export function Player({ scenarioId, auto = false }: { scenarioId: string; auto?: boolean }) {
+export function Player({
+  scenarioId,
+  title,
+  intro,
+  auto = false,
+}: {
+  scenarioId: string
+  title: string
+  intro: string
+  auto?: boolean
+}) {
   const [run, setRun] = useState<Run | null>(null)
   const [error, setError] = useState<string | null>(null)
   // When the current node was put on screen; the server charges elapsed time from its own
@@ -159,13 +169,6 @@ export function Player({ scenarioId, auto = false }: { scenarioId: string; auto?
       inFlight.current = false
     },
   })
-
-  const startOnce = useRef(false)
-  useEffect(() => {
-    if (startOnce.current) return
-    startOnce.current = true
-    start.mutate()
-  }, [start.mutate])
 
   const node = run?.node
   const isChoice = node?.type === 'choice'
@@ -212,6 +215,24 @@ export function Player({ scenarioId, auto = false }: { scenarioId: string; auto?
         <Link href="/" className={buttonClass({ variant: 'outline' })}>
           {ru.nav.exitPlay}
         </Link>
+      </div>
+    )
+  }
+  // The session, and with it the first node's timer, starts only once the briefing is read.
+  if (!run && !start.isPending) {
+    return (
+      <div className={cn(page, 'flex flex-col gap-5 pt-6')}>
+        <Card pad="lg" className="flex flex-col gap-4">
+          <SectionTitle>{title}</SectionTitle>
+          <p className="text-lead text-balance sm:text-lead-lg">{intro}</p>
+        </Card>
+        <button
+          type="button"
+          onClick={() => start.mutate()}
+          className={buttonClass({ variant: 'primary', size: 'lg' })}
+        >
+          {ru.player.begin}
+        </button>
       </div>
     )
   }
