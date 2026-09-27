@@ -126,6 +126,9 @@ export function Player({ scenarioId, auto = false }: { scenarioId: string; auto?
   // When the current node was put on screen; the server charges elapsed time from its own
   // clock and only uses ours inside the grace window (see TIMER_GRACE_MS).
   const shownAt = useRef(Date.now())
+  // isPending only flips on the next render, so a double-click would send the step twice and
+  // the second answer comes back 409. This ref closes that gap synchronously.
+  const inFlight = useRef(false)
   const queryClient = useQueryClient()
 
   const start = useMutation({
@@ -152,6 +155,9 @@ export function Player({ scenarioId, auto = false }: { scenarioId: string; auto?
       if (r.finished) queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
     onError: (e: Error) => setError(e.message),
+    onSettled: () => {
+      inFlight.current = false
+    },
   })
 
   const startOnce = useRef(false)
@@ -171,15 +177,16 @@ export function Player({ scenarioId, auto = false }: { scenarioId: string; auto?
 
   const submit = useCallback(
     (choiceId: string) => {
-      if (run?.node.type !== 'choice' || choose.isPending) return
+      if (run?.node.type !== 'choice' || inFlight.current) return
+      inFlight.current = true
       choose.mutate({ nodeId: run.node.id, choiceId })
     },
     [run, choose],
   )
 
   useEffect(() => {
-    if (deadline !== null && left === 0) submit('timeout')
-  }, [deadline, left, submit])
+    if (deadline !== null && left === 0 && !error) submit('timeout')
+  }, [deadline, left, submit, error])
 
   // Keys 1–4 pick the choice with that number on screen. submit() already ignores a key
   // pressed mid-request or off a choice node.
