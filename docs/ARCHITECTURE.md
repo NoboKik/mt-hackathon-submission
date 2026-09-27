@@ -22,7 +22,7 @@
 
 ```mermaid
 flowchart LR
-  subgraph client["Браузер проводника"]
+  subgraph client["FRONTEND — браузер проводника"]
     ui["Страницы app/(app)/*<br/>React, TanStack Query, Zustand"]
     http["lib/client.ts<br/>единственный HTTP-клиент"]
     ui --> http
@@ -33,7 +33,7 @@ flowchart LR
   subgraph compose["Docker Compose"]
     caddy["caddy<br/>TLS, reverse proxy<br/>порты 80/443"]
     subgraph web["web — Next.js (standalone)"]
-      api["app/api/*<br/>route handlers"]
+      api["BACKEND: app/api/*<br/>route handlers"]
       queries["db/queries.ts<br/>Drizzle ORM"]
       llmad["llm/<br/>генератор черновиков"]
       subgraph shared["packages/shared — чистое ядро"]
@@ -52,7 +52,7 @@ flowchart LR
 
   llm["OpenAI-совместимый LLM<br/>(необязателен, только авто-режим)"]
 
-  http -- "HTTPS, JSON, cookie" --> caddy
+  http -- "граница frontend / backend:<br/>HTTPS /api/*, JSON, cookie" --> caddy
   hr -- "HTTPS, Bearer" --> caddy
   caddy --> api
   queries --> pg
@@ -60,11 +60,28 @@ flowchart LR
   llmad -. "/chat/completions" .-> llm
 ```
 
-- Состояние игры живёт только в Postgres. Веб-контейнер можно запустить в нескольких
-  экземплярах за Caddy: сессии — подписанная cookie, пополнение пула авто-режима защищено
-  advisory-lock в Postgres, запись шага — оптимистичная (`WHERE current_node = …`).
 - Без LLM приложение работает целиком; модель нужна только для черновиков авто-режима и может
   работать внутри периметра заказчика (vLLM, Ollama).
+
+## Граница frontend / backend и масштабирование
+
+- **Frontend** — страницы `app/(app)/*` и `components/`. Страницы лишь передают параметры
+  маршрута клиентским компонентам; данные те получают только по HTTP через `lib/client.ts`
+  (`fetch('/api/…')`). Ни одна страница и ни один компонент не импортирует `db/`, `llm/` или
+  серверный `lib/auth.ts`. Из `packages/shared` берут только типы ответов и константы
+  (подписи компетенций, области рейтинга) — очки, шкалы и достижения в браузере не считаются.
+- **Backend** — обработчики `app/api/*`: проверка входа (Zod), вызов ядра, запросы к Postgres
+  через `db/queries.ts`. Внешние системы (HR, LMS) ходят в тот же backend по Bearer-токену.
+- **Ядро** — `packages/shared`: движок, подсчёт очков, валидатор сценариев, достижения. Чистые
+  функции без ввода-вывода; backend их вызывает, тесты проверяют без базы.
+- **Масштабирование.** Веб-контейнер не хранит состояние: игровые сессии, профили и пул
+  авто-режима — в Postgres, вход — подписанная cookie (ключ общий для всех экземпляров:
+  `AUTH_SECRET` или том `secrets`). Поэтому контейнер `web` можно запустить в нескольких
+  экземплярах за Caddy: пополнение пула авто-режима защищено advisory-lock в Postgres, запись шага
+  — оптимистичная (`WHERE current_node = …`), двойной шаг получает 409.
+- **Известные исключения** (см. «Ограничения» в README): счётчик попыток входа и 30-секундный кэш
+  рейтинга живут в памяти процесса. При нескольких экземплярах лимит входа умножается на их число,
+  а рейтинг может отставать до 30 с; лечится переносом обоих в Postgres или Redis.
 
 ## Последовательность: один шаг сценария
 
