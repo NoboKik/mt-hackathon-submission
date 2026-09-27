@@ -95,24 +95,26 @@ export function AppHeader() {
           <Wordmark onHeader />
 
           <div className="flex items-center gap-1">
-            <nav className="hidden sm:block">
-              <ul className="flex h-14 items-stretch">
-                {LINKS.map((link) => (
-                  <li key={link.href}>
-                    <Link
-                      href={link.href}
-                      aria-current={isActive(pathname, link.href) ? 'page' : undefined}
-                      className={cn(
-                        'hover:bg-header-active focus-visible:ring-header-foreground flex h-full items-center px-3 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset',
-                        isActive(pathname, link.href) && 'bg-header-active',
-                      )}
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </nav>
+            {signedIn && (
+              <nav className="hidden sm:block">
+                <ul className="flex h-14 items-stretch">
+                  {LINKS.map((link) => (
+                    <li key={link.href}>
+                      <Link
+                        href={link.href}
+                        aria-current={isActive(pathname, link.href) ? 'page' : undefined}
+                        className={cn(
+                          'hover:bg-header-active focus-visible:ring-header-foreground flex h-full items-center px-3 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset',
+                          isActive(pathname, link.href) && 'bg-header-active',
+                        )}
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            )}
 
             {/* Mounted only when signed in, so /login never asks for a feed it would 401 on. */}
             {signedIn && (
@@ -135,14 +137,16 @@ export function AppHeader() {
               </button>
             )}
 
-            <button
-              type="button"
-              aria-label={ru.nav.menu}
-              onClick={() => drawer.current?.showModal()}
-              className="hover:bg-header-active focus-visible:ring-header-foreground flex size-11 items-center justify-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none sm:hidden"
-            >
-              <Menu className="size-5" aria-hidden="true" />
-            </button>
+            {signedIn && (
+              <button
+                type="button"
+                aria-label={ru.nav.menu}
+                onClick={() => drawer.current?.showModal()}
+                className="hover:bg-header-active focus-visible:ring-header-foreground flex size-11 items-center justify-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none sm:hidden"
+              >
+                <Menu className="size-5" aria-hidden="true" />
+              </button>
+            )}
           </div>
         </div>
       </header>
