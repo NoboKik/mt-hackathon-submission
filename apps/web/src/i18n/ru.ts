@@ -243,8 +243,8 @@ export const ru = {
   engine: {
     // The engine returns the threshold ending with an empty text; the server fills it from here.
     thresholdFail: {
-      loyalty: 'Пассажиры потеряли доверие — сценарий прерван.',
-      safety: 'Ситуация вышла из-под контроля — сценарий прерван.',
+      loyalty: 'Лояльность упала ниже порога: пассажиры потеряли доверие, сценарий прерван.',
+      safety: 'Безопасность упала ниже порога: ситуация вышла из-под контроля, сценарий прерван.',
     },
   },
   // The five competency axes on the profile radar, in COMPETENCIES order.
