@@ -1,16 +1,16 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import localFont from 'next/font/local'
 import { ru } from '@/i18n/ru'
 import './globals.css'
 
-// Self-hosted at build time: no request to Google at runtime, which also keeps the
-// first paint off a third party. See the note in tokens.css for why this face.
-// 500 and 600 are loaded because the type scale uses them — without them `font-medium`
-// and `font-semibold` silently render as 400.
-const sans = Inter({
-  subsets: ['cyrillic', 'latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-inter',
+// Moscow Sans, the organizer's brand face. It ships only 400 and 800, so `font-medium`
+// resolves to 400 and `font-semibold`/`font-bold` to 800 by the browser's nearest-weight rule.
+const sans = localFont({
+  src: [
+    { path: './fonts/MoscowSans-Regular.ttf', weight: '400', style: 'normal' },
+    { path: './fonts/MoscowSans-ExtraBold.otf', weight: '800', style: 'normal' },
+  ],
+  variable: '--font-moscow',
   display: 'swap',
 })
 

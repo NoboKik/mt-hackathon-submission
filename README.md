@@ -384,7 +384,7 @@ REST API описан в OpenAPI 3.1: [`apps/web/public/openapi.yaml`](apps/web/
 | Caddy | 2 (образ `caddy:2-alpine`) | Apache-2.0 | HTTPS, reverse proxy |
 | Node.js | ≥ 22 | MIT | Среда выполнения |
 | Swagger UI (swagger-ui-dist, CDN jsdelivr) | 5.33.0 | Apache-2.0 | Страница `/api-docs.html` |
-| Шрифт Inter (Google Fonts через `next/font`) | — | SIL OFL 1.1 | Типографика |
+| Шрифт Moscow Sans (файлы в `apps/web/src/app/fonts/`) | — | Предоставлен организаторами хакатона для использования в проекте | Типографика |
 
 Среди транзитивных зависимостей есть `sharp-libvips` (LGPL-3.0-or-later, подключается
 динамически для оптимизации изображений в Next.js), `caniuse-lite` (CC-BY-4.0) и `lightningcss`

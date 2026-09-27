@@ -49,9 +49,9 @@
   --color-red-700: #ae1928; /* .btn-primary:active — 7.07:1 on their bg, our brand text */
   --color-blue-600: #0a51a1; /* their link blue — the safety meter */
 
-  /* Inter, loaded by next/font in layout.tsx. */
+  /* Moscow Sans, loaded by next/font/local in layout.tsx. */
   --font-sans:
-    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+    var(--font-moscow), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
 
   /* ——— Shape. transport.mos.ru is 8px for every tile, button and input, 4px for tag
    * chips, 16px for the big fused form slabs, 100px for circular controls. We follow it,
